@@ -116,19 +116,17 @@ async function createThread() {
 
     const threadId = threadData.id;
 
-    // ---- 2. 画像アップロード（任意） ----
+    // ---- 画像アップロード（任意） ----
     let imageUrl = null;
 
     if (imageFile) {
         const fileName = `thread_${threadId}_1_${Date.now()}.jpg`;
 
-        const { data: imageData, error: uploadErr } = await sb.storage
+        const { error: uploadErr } = await sb.storage
             .from("images")
             .upload(fileName, imageFile);
 
-        if (uploadErr) {
-            alert("画像アップロード失敗：" + uploadErr.message);
-        } else {
+        if (!uploadErr) {
             const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
@@ -144,7 +142,7 @@ async function createThread() {
         image_url: imageUrl
     });
 
-    // ---- 4. 入力欄クリア ----
+    // ---- 入力欄クリア ----
     document.getElementById("threadTitle").value = "";
     document.getElementById("postName").value = "";
     document.getElementById("postContent").value = "";
