@@ -12,26 +12,27 @@
 
     <h1 class="title">２ちゃんねる風掲示板</h1>
 
-    <!-- ▼ ブラウザに表示させる説明欄 -->
+    <!-- ▼ 説明欄 -->
     <div class="description">
         <p>ここは掲示板のトップページです。</p>
-        <p>以下に表示されている板（カテゴリ）は、Supabase の boards テーブルから自動で読み込まれています。</p>
-        <p>好きな板をクリックしてスレッド一覧へ進んでください。</p>
+        <p>以下の板一覧は Supabase の boards テーブルから自動で読み込みます。</p>
     </div>
 
     <hr>
 
     <h2>板一覧</h2>
 
-    <!-- ここに Supabase から取得した boards が入る -->
+    <!-- ★ Supabase からとってくる板一覧を入れる場所 -->
     <div id="boards-list">読み込み中…</div>
 
 </div>
 
-<script src="superbase.js"></script>
-<script>
+<!-- ★ supabase.js（名前は正確に。supabase.js でOK） -->
+<script src="supabase.js"></script>
 
-    const boardList = document.getElementById("board-list");
+<script>
+    // HTML内の正しいIDを取得
+    const boardList = document.getElementById("boards-list");
 
     async function loadBoards() {
 
@@ -41,16 +42,16 @@
             .order("id", { ascending: true });
 
         if (error) {
-            boardList.innerHTML = "エラーが発生しました: " + error.message;
+            boardList.innerHTML = "エラー: " + error.message;
             return;
         }
 
         if (!data || data.length === 0) {
-            boardList.innerHTML = "まだ板がありません。Supabase の boards にデータを追加してください。";
+            boardList.innerHTML = "板がありません。Supabase の boards テーブルに追加してください。";
             return;
         }
 
-        // boards のリンクをブラウザに表示する
+        // 正常に取得 → HTMLに表示
         boardList.innerHTML = data.map(board => `
             <div class="board-item">
                 <a href="board.html?b=${board.slug}" class="board-link">
@@ -60,6 +61,7 @@
         `).join("");
     }
 
+    // ページ読み込み時に起動
     loadBoards();
 </script>
 
