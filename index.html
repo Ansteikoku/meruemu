@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>2ch風掲示板 Index</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase.js"></script>
 </head>
 
 <body>
@@ -12,57 +14,45 @@
 
     <h1 class="title">２ちゃんねる風掲示板</h1>
 
-    <!-- ▼ 説明欄 -->
     <div class="description">
-        <p>ここは掲示板のトップページです。</p>
-        <p>以下の板一覧は Supabase の boards テーブルから自動で読み込みます。</p>
+        <p>ここは掲示板トップページです。</p>
+        <p>以下の板一覧は Supabase の boards テーブルから自動表示しています。</p>
     </div>
 
     <hr>
 
     <h2>板一覧</h2>
 
-    <!-- ★ Supabase からとってくる板一覧を入れる場所 -->
-    <div id="boards-list">読み込み中…</div>
+    <div id="boardList">読み込み中…</div>
 
 </div>
 
-<!-- ★ supabase.js（名前は正確に。supabase.js でOK） -->
-<script src="supabase.js"></script>
-
 <script>
-    // HTML内の正しいIDを取得
-    const boardList = document.getElementById("boards-list");
 
-    async function loadBoards() {
+async function loadBoards(){
+    const { data, error } = await sb
+        .from("boards")
+        .select("*")
+        .order("id");
 
-        const { data, error } = await supabase
-            .from("boards")
-            .select("*")
-            .order("id", { ascending: true });
+    const box = document.getElementById("boardList");
 
-        if (error) {
-            boardList.innerHTML = "エラー: " + error.message;
-            return;
-        }
-
-        if (!data || data.length === 0) {
-            boardList.innerHTML = "板がありません。Supabase の boards テーブルに追加してください。";
-            return;
-        }
-
-        // 正常に取得 → HTMLに表示
-        boardList.innerHTML = data.map(board => `
-            <div class="board-item">
-                <a href="board.html?b=${board.slug}" class="board-link">
-                    ${board.title}
-                </a>
-            </div>
-        `).join("");
+    if (error) {
+        box.innerHTML = "エラー：" + error.message;
+        return;
     }
 
-    // ページ読み込み時に起動
-    loadBoards();
+    box.innerHTML = "";
+
+    data.forEach(b => {
+        box.innerHTML += `
+            <a class="thread-link" href="board.html?b=${b.id}">${b.title}</a><br>
+        `;
+    });
+}
+
+loadBoards();
+
 </script>
 
 </body>
