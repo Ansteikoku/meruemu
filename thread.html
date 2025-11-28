@@ -13,12 +13,7 @@
 
     <h1 id="threadTitle" class="thread-title"></h1>
 
-    <!-- ▼▼ 固定レス（1レス） ▼▼ -->
-    <div class="fixed-res">
-        1 ：名無しさん ：スレッド作成時の自動レスです
-    </div>
-
-    <!-- ▼ レス一覧 -->
+    <!-- ▼▼ レス一覧 ▼▼ -->
     <div id="postArea" class="post-area"></div>
 
     <hr>
@@ -40,11 +35,11 @@
 
 
 <script>
-// ---------------- URL から thread_id 取得 ----------------
+// --------------- URLからthread_id取得 ---------------
 const urlParams = new URLSearchParams(window.location.search);
 const threadId = urlParams.get("id");
 
-// ---------------- スレタイ取得 ----------------
+// --------------- スレタイ取得 ---------------
 async function loadThreadTitle() {
     const { data, error } = await sb
         .from("threads")
@@ -53,14 +48,14 @@ async function loadThreadTitle() {
         .single();
 
     if (error) {
-        document.getElementById("threadTitle").textContent = "スレ取得エラー";
+        document.getElementById("threadTitle").textContent = "エラー";
         return;
     }
 
     document.getElementById("threadTitle").textContent = data.title;
 }
 
-// ---------------- レス一覧取得 ----------------
+// --------------- レス一覧取得 ---------------
 async function loadPosts() {
     const { data, error } = await sb
         .from("posts")
@@ -72,7 +67,7 @@ async function loadPosts() {
     box.innerHTML = "";
 
     if (error) {
-        box.innerHTML = "レス取得エラー";
+        box.innerHTML = "読み込みエラー";
         return;
     }
 
@@ -81,15 +76,13 @@ async function loadPosts() {
         div.className = "res-item";
         div.id = `res-${p.id}`;
 
-        const body = applyAnchors(p.content);
-
         div.innerHTML = `
             <div class="res-meta">
                 ${p.id} ：${p.name} ：ID:${makeID(p.name, p.id)}
             </div>
 
             <div class="res-body">
-                ${body}
+                ${applyAnchors(p.content)}
             </div>
 
             ${p.image_url ? `<img src="${p.image_url}" class="res-image">` : ""}
@@ -99,50 +92,49 @@ async function loadPosts() {
     });
 }
 
-// ---------------- アンカー処理（>>数字） ----------------
+// --------------- アンカー機能（>>12） ---------------
 function applyAnchors(text) {
     return text.replace(/>>(\d+)/g, (m, num) =>
-        `<a href="#res-${num}" class="anchor" onclick="highlight(${num});return false;">>>${num}</a>`
+        `<a href="#res-${num}" onclick="highlight(${num});return false;">>>${num}</a>`
     );
 }
 
 function highlight(num) {
     const el = document.getElementById(`res-${num}`);
     if (!el) return;
-
-    el.style.background = "#FFF5A3";
-    setTimeout(() => el.style.background = "", 900);
+    el.style.background = "#FFEE99";
+    setTimeout(() => el.style.background = "", 700);
 }
 
-// ---------------- ID生成（簡易2ch式） ----------------
+// --------------- ID生成（簡易2ch式） ---------------
 function makeID(name, seed) {
-    return btoa(name + seed).substring(0, 8);
+    const base = name + seed;
+    return btoa(base).substring(0, 8);
 }
 
-// ---------------- レス投稿（画像つき） ----------------
+// --------------- レス投稿（画像つき） ---------------
 async function postReply() {
+
     const name = document.getElementById("postName").value.trim() || "名無しさん";
     const content = document.getElementById("postContent").value.trim();
     const imageFile = document.getElementById("postImage").files[0];
 
     if (!content && !imageFile) {
-        alert("本文か画像のどちらかは必須です");
+        alert("本文か画像を入力してください");
         return;
     }
 
-    // ---- 画像アップロード ----
+    // ----- 画像アップロード -----
     let imageUrl = null;
 
     if (imageFile) {
         const fileName = `reply_${threadId}_${Date.now()}.jpg`;
 
-        const { data: upData, error: upErr } = await sb.storage
+        const { error: uploadErr } = await sb.storage
             .from("images")
             .upload(fileName, imageFile);
 
-        if (upErr) {
-            alert("画像アップロード失敗：" + upErr.message);
-        } else {
+        if (!uploadErr) {
             const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
@@ -151,31 +143,22 @@ async function postReply() {
         }
     }
 
-    // ---- 投稿 ----
-    const { error } = await sb.from("posts").insert({
+    // ----- 投稿 -----
+    await sb.from("posts").insert({
         thread_id: threadId,
         name,
         content,
         image_url: imageUrl
     });
 
-    if (error) {
-        alert("レス投稿エラー：" + error.message);
-        return;
-    }
-
-    // 入力欄をクリア
+    // 入力欄クリア
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
-    // 再読み込み
-    await loadPosts();
-
-    // 一番下へスクロール
-    window.scrollTo(0, document.body.scrollHeight);
+    loadPosts();
 }
 
-// ---------------- 初期実行 ----------------
+// 初期ロード
 loadThreadTitle();
 loadPosts();
 
