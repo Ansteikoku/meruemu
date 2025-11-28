@@ -1,24 +1,67 @@
 <!DOCTYPE html>
-<html lang="ja"><head>
-<meta charset="UTF-8" />
-<title>2ch風掲示板 - 板一覧</title>
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
-</head><body>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>2ch風掲示板 Index</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
 <div class="container">
-<h2>板一覧</h2>
-<div id="boardList"></div>
+
+    <h1 class="title">２ちゃんねる風掲示板</h1>
+
+    <!-- ▼ ブラウザに表示させる説明欄 -->
+    <div class="description">
+        <p>ここは掲示板のトップページです。</p>
+        <p>以下に表示されている板（カテゴリ）は、Supabase の boards テーブルから自動で読み込まれています。</p>
+        <p>好きな板をクリックしてスレッド一覧へ進んでください。</p>
+    </div>
+
+    <hr>
+
+    <h2>板一覧</h2>
+
+    <!-- ここに Supabase から取得した boards が入る -->
+    <div id="board-list">読み込み中…</div>
+
 </div>
+
+<script src="superbase.js"></script>
 <script>
-async function loadBoards(){
-  const { data } = await sb.from("boards").select("*").order("id");
-  const box=document.getElementById("boardList");
-  box.innerHTML="";
-  data.forEach(b=>{
-    box.innerHTML += `<a class='thread-link' href='board.html?b=${b.id}'>${b.title}</a><br>`;
-  });
-}
-loadBoards();
+
+    const boardList = document.getElementById("board-list");
+
+    async function loadBoards() {
+
+        const { data, error } = await supabase
+            .from("boards")
+            .select("*")
+            .order("id", { ascending: true });
+
+        if (error) {
+            boardList.innerHTML = "エラーが発生しました: " + error.message;
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            boardList.innerHTML = "まだ板がありません。Supabase の boards にデータを追加してください。";
+            return;
+        }
+
+        // boards のリンクをブラウザに表示する
+        boardList.innerHTML = data.map(board => `
+            <div class="board-item">
+                <a href="board.html?b=${board.slug}" class="board-link">
+                    ${board.title}
+                </a>
+            </div>
+        `).join("");
+    }
+
+    loadBoards();
 </script>
-</body></html>
+
+</body>
+</html>
