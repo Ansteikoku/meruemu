@@ -1,82 +1,155 @@
 <!DOCTYPE html>
-<html lang="ja"><head>
-<meta charset="UTF-8" />
-<title>2ch風スレ</title>
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
-</head><body>
-<div class="container">
-<h2 id="threadTitle"></h2>
-<div class="fixed-res">1 ：固定レス</div>
-<div id="resArea"></div>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>スレッド</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="supabase.js"></script>
+</head>
 
-<h3>レス投稿</h3>
-<input id="name" placeholder="名前（省略可）"><br>
-<textarea id="content" rows="5" cols="50" placeholder="内容"></textarea><br>
-<input type="file" id="image" accept="image/*"><br>
-<button onclick="postRes()">投稿</button>
+<body>
+
+<div class="thread-wrapper">
+
+    <h1 id="threadTitle" class="thread-title"></h1>
+
+    <div id="postArea" class="post-area"></div>
+
+    <hr>
+
+    <!-- ▼▼ レス投稿フォーム ▼▼ -->
+    <div class="post-form">
+        <h2>■ レス投稿</h2>
+
+        <input id="postName" type="text" placeholder="名前（省略時：名無しさん）" class="post-input"><br><br>
+
+        <textarea id="postContent" placeholder="本文を入力…" class="post-textarea"></textarea><br><br>
+
+        <input id="postImage" type="file" accept="image/*"><br><br>
+
+        <button onclick="postReply()" class="post-btn">投稿</button>
+    </div>
+
 </div>
 
+
 <script>
-const url=new URL(location.href);
-const threadId=url.searchParams.get("t");
+// --------------- URLからthread_id取得 ---------------
+const urlParams = new URLSearchParams(window.location.search);
+const threadId = urlParams.get("id");
 
-const NG=["死ね","殺す","荒らし","クソ","バカ"];
-let lastTime=0;
+// --------------- スレタイ取得 ---------------
+async function loadThreadTitle() {
+    const { data } = await supabase
+        .from("threads")
+        .select("title")
+        .eq("id", threadId)
+        .single();
 
-async function loadThread(){
-  const { data } = await sb.from("threads").select("*").eq("id",threadId).single();
-  document.getElementById("threadTitle").textContent=data.title;
+    document.getElementById("threadTitle").textContent = data.title;
 }
 
-async function loadPosts(){
-  const { data } = await sb.from("posts").select("*").eq("thread_id",threadId).order("id");
-  const box=document.getElementById("resArea");
-  box.innerHTML="";
-  data.forEach(r=>{
-    box.innerHTML += `
-<div class='res' id='res-${r.id}'>
-  <div class='meta'>${r.id} ：${r.name || "名無しさん"}：[ID:???]</div>
-  <div class='body'>${r.content.replace(/>>([0-9]+)/g,"<a href='#res-$1' onclick='highlight($1);return false;'>>$1</a>")}</div>
-  ${r.image_url ? `<img src='${r.image_url}' class='img'>`:""}
-</div>`;
-  });
+// --------------- レス一覧取得 ---------------
+async function loadPosts() {
+    const { data } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("thread_id", threadId)
+        .order("id", { ascending: true });
+
+    const box = document.getElementById("postArea");
+    box.innerHTML = "";
+
+    data.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "res-item";
+        div.id = `res-${p.id}`;
+
+        div.innerHTML = `
+            <div class="res-meta">
+                ${p.id} ：${p.name} ：ID:${makeID(p.name, p.id)}
+            </div>
+
+            <div class="res-body">
+                ${applyAnchors(p.content)}
+            </div>
+
+            ${ p.image_url ? `<img src="${p.image_url}" class="res-image">` : "" }
+        `;
+
+        box.appendChild(div);
+    });
 }
 
-function highlight(n){
-  const e=document.getElementById("res-"+n);
-  if(!e) return;
-  e.style.background="#FFEE99";
-  setTimeout(()=>e.style.background="",900);
+// --------------- アンカー機能（>>12） ---------------
+function applyAnchors(text) {
+    return text.replace(/>>(\d+)/g, (m, num) =>
+        `<a href="#res-${num}" onclick="highlight(${num});return false;">>>${num}</a>`
+    );
 }
 
-async function postRes(){
-  const now=Date.now();
-  const name=document.getElementById("name").value || "名無しさん";
-  const content=document.getElementById("content").value;
-  let file=document.getElementById("image").files[0];
-
-  if(now-lastTime<5000){ alert("連投規制"); return; }
-  for(const x of NG){ if(content.includes(x)){ alert("NGワード"); return;}}
-
-  lastTime=now;
-
-  let url=null;
-  if(file){
-    const fileName="img_"+Date.now()+".jpg";
-    await sb.storage.from("images").upload(fileName,file);
-    const pub=sb.storage.from("images").getPublicUrl(fileName);
-    url=pub.data.publicUrl;
-  }
-
-  await sb.from("posts").insert({thread_id:threadId,name,content,image_url:url});
-  loadPosts();
-  document.getElementById("content").value="";
-  document.getElementById("image").value="";
+function highlight(num) {
+    const el = document.getElementById(`res-${num}`);
+    if (!el) return;
+    el.style.background = "#FFEE99";
+    setTimeout(() => el.style.background = "", 700);
 }
 
-loadThread();
+// --------------- ID生成（簡易2ch式） ---------------
+function makeID(name, seed) {
+    const base = name + seed;
+    return btoa(base).substring(0, 8);
+}
+
+// --------------- レス投稿（画像つき） ---------------
+async function postReply() {
+    const name = document.getElementById("postName").value.trim() || "名無しさん";
+    const content = document.getElementById("postContent").value.trim();
+    const imageFile = document.getElementById("postImage").files[0];
+
+    if (!content && !imageFile) {
+        alert("本文か画像を入力してください");
+        return;
+    }
+
+    // ----- 画像アップロード -----
+    let imageUrl = null;
+
+    if (imageFile) {
+        const fileName = `reply_${threadId}_${Date.now()}.jpg`;
+
+        const { error: uploadErr } = await supabase.storage
+            .from("images")
+            .upload(fileName, imageFile);
+
+        if (!uploadErr) {
+            const { data: urlData } = supabase.storage
+                .from("images")
+                .getPublicUrl(fileName);
+
+            imageUrl = urlData.publicUrl;
+        }
+    }
+
+    // ----- 投稿 -----
+    await supabase.from("posts").insert({
+        thread_id: threadId,
+        name,
+        content,
+        image_url: imageUrl
+    });
+
+    document.getElementById("postContent").value = "";
+    document.getElementById("postImage").value = "";
+
+    loadPosts();
+}
+
+// 初期ロード
+loadThreadTitle();
 loadPosts();
+
 </script>
-</body></html>
+
+</body>
+</html>
