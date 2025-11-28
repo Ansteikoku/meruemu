@@ -1,0 +1,8 @@
+body{font-family:'MS PGothic',monospace;background:#FFFFEE;}
+.container{width:80%;margin:20px auto;background:#FFF;padding:20px;border:1px solid #C0C0C0;}
+.thread-link{color:#0000CC;text-decoration:none;}
+.thread-link:hover{text-decoration:underline;}
+.res{border-bottom:1px dotted #AAA;padding:10px 0;}
+.meta{color:#228B22;font-size:14px;}
+.fixed-res{background:#FFFFCC;padding:10px;border:2px solid #F0E68C;margin-bottom:10px;}
+.img{max-width:250px;margin-top:5px;border:1px solid #CCC;}

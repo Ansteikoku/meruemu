@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8" />
+<title>2ch風掲示板 - 板一覧</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+</head><body>
+<div class="container">
+<h2>板一覧</h2>
+<div id="boardList"></div>
+</div>
+<script>
+async function loadBoards(){
+  const { data } = await sb.from("boards").select("*").order("id");
+  const box=document.getElementById("boardList");
+  box.innerHTML="";
+  data.forEach(b=>{
+    box.innerHTML += `<a class='thread-link' href='board.html?b=${b.id}'>${b.title}</a><br>`;
+  });
+}
+loadBoards();
+</script>
+</body></html>

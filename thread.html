@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8" />
+<title>2ch風スレ</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+</head><body>
+<div class="container">
+<h2 id="threadTitle"></h2>
+<div class="fixed-res">1 ：固定レス</div>
+<div id="resArea"></div>
+
+<h3>レス投稿</h3>
+<input id="name" placeholder="名前（省略可）"><br>
+<textarea id="content" rows="5" cols="50" placeholder="内容"></textarea><br>
+<input type="file" id="image" accept="image/*"><br>
+<button onclick="postRes()">投稿</button>
+</div>
+
+<script>
+const url=new URL(location.href);
+const threadId=url.searchParams.get("t");
+
+const NG=["死ね","殺す","荒らし","クソ","バカ"];
+let lastTime=0;
+
+async function loadThread(){
+  const { data } = await sb.from("threads").select("*").eq("id",threadId).single();
+  document.getElementById("threadTitle").textContent=data.title;
+}
+
+async function loadPosts(){
+  const { data } = await sb.from("posts").select("*").eq("thread_id",threadId).order("id");
+  const box=document.getElementById("resArea");
+  box.innerHTML="";
+  data.forEach(r=>{
+    box.innerHTML += `
+<div class='res' id='res-${r.id}'>
+  <div class='meta'>${r.id} ：${r.name || "名無しさん"}：[ID:???]</div>
+  <div class='body'>${r.content.replace(/>>([0-9]+)/g,"<a href='#res-$1' onclick='highlight($1);return false;'>>$1</a>")}</div>
+  ${r.image_url ? `<img src='${r.image_url}' class='img'>`:""}
+</div>`;
+  });
+}
+
+function highlight(n){
+  const e=document.getElementById("res-"+n);
+  if(!e) return;
+  e.style.background="#FFEE99";
+  setTimeout(()=>e.style.background="",900);
+}
+
+async function postRes(){
+  const now=Date.now();
+  const name=document.getElementById("name").value || "名無しさん";
+  const content=document.getElementById("content").value;
+  let file=document.getElementById("image").files[0];
+
+  if(now-lastTime<5000){ alert("連投規制"); return; }
+  for(const x of NG){ if(content.includes(x)){ alert("NGワード"); return;}}
+
+  lastTime=now;
+
+  let url=null;
+  if(file){
+    const fileName="img_"+Date.now()+".jpg";
+    await sb.storage.from("images").upload(fileName,file);
+    const pub=sb.storage.from("images").getPublicUrl(fileName);
+    url=pub.data.publicUrl;
+  }
+
+  await sb.from("posts").insert({thread_id:threadId,name,content,image_url:url});
+  loadPosts();
+  document.getElementById("content").value="";
+  document.getElementById("image").value="";
+}
+
+loadThread();
+loadPosts();
+</script>
+</body></html>

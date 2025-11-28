@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="UTF-8" />
+<title>2ch風板</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+</head><body>
+<div class="container">
+<h2 id="boardTitle"></h2>
+<div id="threadList"></div>
+<hr>
+<h3>新規スレッド作成</h3>
+<input id="newThreadTitle" style="width:70%" placeholder="スレタイ">
+<button onclick="createThread()">作成</button>
+</div>
+<script>
+const url=new URL(location.href);
+const boardId=url.searchParams.get("b");
+
+async function loadBoard(){
+  const { data } = await sb.from("boards").select("*").eq("id",boardId).single();
+  document.getElementById("boardTitle").textContent=data.title;
+}
+async function loadThreads(){
+  const { data } = await sb.from("threads").select("*").eq("board_id",boardId).order("id",{ascending:false});
+  const box=document.getElementById("threadList");
+  box.innerHTML="";
+  data.forEach(t=>{
+    box.innerHTML += `<a class='thread-link' href='thread.html?t=${t.id}'>${t.title}</a><br>`;
+  });
+}
+async function createThread(){
+  const title=document.getElementById("newThreadTitle").value;
+  if(!title) return;
+  await sb.from("threads").insert({board_id:boardId,title});
+  loadThreads();
+}
+loadBoard();
+loadThreads();
+</script>
+</body></html>
