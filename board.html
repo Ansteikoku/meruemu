@@ -12,7 +12,7 @@
 
     <h1 id="boardTitle" class="board-title"></h1>
 
-    <!-- ▼▼ 新規スレッド作成 ▼▼ -->
+    <!-- ▼ 新規スレッド作成 -->
     <div class="new-thread-box">
         <h2>■ 新規スレッド作成</h2>
 
@@ -40,13 +40,13 @@ const boardId = urlParams.get("id");
 
 // ▼ 板名取得
 async function loadBoard() {
-    const { data } = await supabase.from("boards").select("title").eq("id", boardId).single();
+    const { data } = await sb.from("boards").select("title").eq("id", boardId).single();
     document.getElementById("boardTitle").textContent = data.title;
 }
 
 // ▼ スレ一覧取得
 async function loadThreads() {
-    const { data } = await supabase
+    const { data } = await sb
         .from("threads")
         .select("*")
         .eq("board_id", boardId)
@@ -75,8 +75,8 @@ async function createThread() {
         return;
     }
 
-    // ---- Step 1: スレッドを作成 ----
-    const { data: threadData, error: threadErr } = await supabase
+    // ---- Step 1: スレッド作成 ----
+    const { data: threadData, error: threadErr } = await sb
         .from("threads")
         .insert({ board_id: boardId, title })
         .select()
@@ -95,12 +95,12 @@ async function createThread() {
     if (imageFile) {
         const fileName = `thread_${threadId}_1_${Date.now()}.jpg`;
 
-        const { error: uploadErr } = await supabase.storage
+        const { error: uploadErr } = await sb.storage
             .from("images")
             .upload(fileName, imageFile);
 
         if (!uploadErr) {
-            const { data: urlData } = supabase.storage
+            const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
             imageUrl = urlData.publicUrl;
@@ -108,7 +108,7 @@ async function createThread() {
     }
 
     // ---- Step 3: >>1 を自動投稿 ----
-    await supabase.from("posts").insert({
+    await sb.from("posts").insert({
         thread_id: threadId,
         name: name,
         content: content || "（本文なし）",
