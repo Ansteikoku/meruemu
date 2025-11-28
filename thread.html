@@ -13,6 +13,12 @@
 
     <h1 id="threadTitle" class="thread-title"></h1>
 
+    <!-- ▼▼ 固定レス（1レス） ▼▼ -->
+    <div class="fixed-res">
+        1 ：名無しさん ：スレッド作成時の自動レスです
+    </div>
+
+    <!-- ▼ レス一覧 -->
     <div id="postArea" class="post-area"></div>
 
     <hr>
@@ -34,24 +40,29 @@
 
 
 <script>
-// --------------- URLからthread_id取得 ---------------
+// ---------------- URL から thread_id 取得 ----------------
 const urlParams = new URLSearchParams(window.location.search);
 const threadId = urlParams.get("id");
 
-// --------------- スレタイ取得 ---------------
+// ---------------- スレタイ取得 ----------------
 async function loadThreadTitle() {
-    const { data } = await supabase
+    const { data, error } = await sb
         .from("threads")
         .select("title")
         .eq("id", threadId)
         .single();
 
+    if (error) {
+        document.getElementById("threadTitle").textContent = "スレ取得エラー";
+        return;
+    }
+
     document.getElementById("threadTitle").textContent = data.title;
 }
 
-// --------------- レス一覧取得 ---------------
+// ---------------- レス一覧取得 ----------------
 async function loadPosts() {
-    const { data } = await supabase
+    const { data, error } = await sb
         .from("posts")
         .select("*")
         .eq("thread_id", threadId)
@@ -60,10 +71,17 @@ async function loadPosts() {
     const box = document.getElementById("postArea");
     box.innerHTML = "";
 
+    if (error) {
+        box.innerHTML = "レス取得エラー";
+        return;
+    }
+
     data.forEach(p => {
         const div = document.createElement("div");
         div.className = "res-item";
         div.id = `res-${p.id}`;
+
+        const body = applyAnchors(p.content);
 
         div.innerHTML = `
             <div class="res-meta">
@@ -71,59 +89,61 @@ async function loadPosts() {
             </div>
 
             <div class="res-body">
-                ${applyAnchors(p.content)}
+                ${body}
             </div>
 
-            ${ p.image_url ? `<img src="${p.image_url}" class="res-image">` : "" }
+            ${p.image_url ? `<img src="${p.image_url}" class="res-image">` : ""}
         `;
 
         box.appendChild(div);
     });
 }
 
-// --------------- アンカー機能（>>12） ---------------
+// ---------------- アンカー処理（>>数字） ----------------
 function applyAnchors(text) {
     return text.replace(/>>(\d+)/g, (m, num) =>
-        `<a href="#res-${num}" onclick="highlight(${num});return false;">>>${num}</a>`
+        `<a href="#res-${num}" class="anchor" onclick="highlight(${num});return false;">>>${num}</a>`
     );
 }
 
 function highlight(num) {
     const el = document.getElementById(`res-${num}`);
     if (!el) return;
-    el.style.background = "#FFEE99";
-    setTimeout(() => el.style.background = "", 700);
+
+    el.style.background = "#FFF5A3";
+    setTimeout(() => el.style.background = "", 900);
 }
 
-// --------------- ID生成（簡易2ch式） ---------------
+// ---------------- ID生成（簡易2ch式） ----------------
 function makeID(name, seed) {
-    const base = name + seed;
-    return btoa(base).substring(0, 8);
+    return btoa(name + seed).substring(0, 8);
 }
 
-// --------------- レス投稿（画像つき） ---------------
+// ---------------- レス投稿（画像つき） ----------------
 async function postReply() {
     const name = document.getElementById("postName").value.trim() || "名無しさん";
     const content = document.getElementById("postContent").value.trim();
     const imageFile = document.getElementById("postImage").files[0];
 
     if (!content && !imageFile) {
-        alert("本文か画像を入力してください");
+        alert("本文か画像のどちらかは必須です");
         return;
     }
 
-    // ----- 画像アップロード -----
+    // ---- 画像アップロード ----
     let imageUrl = null;
 
     if (imageFile) {
         const fileName = `reply_${threadId}_${Date.now()}.jpg`;
 
-        const { error: uploadErr } = await supabase.storage
+        const { data: upData, error: upErr } = await sb.storage
             .from("images")
             .upload(fileName, imageFile);
 
-        if (!uploadErr) {
-            const { data: urlData } = supabase.storage
+        if (upErr) {
+            alert("画像アップロード失敗：" + upErr.message);
+        } else {
+            const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
 
@@ -131,21 +151,31 @@ async function postReply() {
         }
     }
 
-    // ----- 投稿 -----
-    await supabase.from("posts").insert({
+    // ---- 投稿 ----
+    const { error } = await sb.from("posts").insert({
         thread_id: threadId,
         name,
         content,
         image_url: imageUrl
     });
 
+    if (error) {
+        alert("レス投稿エラー：" + error.message);
+        return;
+    }
+
+    // 入力欄をクリア
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
-    loadPosts();
+    // 再読み込み
+    await loadPosts();
+
+    // 一番下へスクロール
+    window.scrollTo(0, document.body.scrollHeight);
 }
 
-// 初期ロード
+// ---------------- 初期実行 ----------------
 loadThreadTitle();
 loadPosts();
 
