@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>ゲーム掲示板</title>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="supabase.js"></script>
+</head>
+<body>
+<div class="container">
+<h2>ゲーム板一覧</h2>
+<div id="boardList"></div>
+</div>
+<script type="module">
+import { loadBoards } from "./supabase.js";
+loadBoards();
+</script>
+</body>
+</html>
