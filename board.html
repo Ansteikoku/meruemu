@@ -12,7 +12,7 @@
 
     <h1 id="boardTitle" class="board-title"></h1>
 
-    <!-- ▼ 新規スレッド作成 -->
+    <!-- ▼ 新規スレ作成フォーム -->
     <div class="new-thread-box">
         <h2>■ 新規スレッド作成</h2>
 
@@ -35,18 +35,34 @@
 </div>
 
 <script>
+
+// URLパラメータから board ID を取得
 const urlParams = new URLSearchParams(window.location.search);
 const boardId = urlParams.get("id");
 
-// ▼ 板名取得
+// ----------------------
+// 板名の読み込み
+// ----------------------
 async function loadBoard() {
-    const { data } = await sb.from("boards").select("title").eq("id", boardId).single();
+    const { data, error } = await sb
+        .from("boards")
+        .select("title")
+        .eq("id", boardId)
+        .single();
+
+    if (error) {
+        document.getElementById("boardTitle").textContent = "エラー";
+        return;
+    }
+
     document.getElementById("boardTitle").textContent = data.title;
 }
 
-// ▼ スレ一覧取得
+// ----------------------
+// スレ一覧読み込み
+// ----------------------
 async function loadThreads() {
-    const { data } = await sb
+    const { data, error } = await sb
         .from("threads")
         .select("*")
         .eq("board_id", boardId)
@@ -55,14 +71,22 @@ async function loadThreads() {
     const list = document.getElementById("threadList");
     list.innerHTML = "";
 
+    if (error) {
+        list.innerHTML = "<li>読み込みエラー</li>";
+        return;
+    }
+
     data.forEach(t => {
         const li = document.createElement("li");
-        li.innerHTML = `<a href="thread.html?id=${t.id}" class="thread-link">${t.title}</a>`;
+        li.innerHTML =
+            `<a href="thread.html?id=${t.id}" class="thread-link">${t.title}</a>`;
         list.appendChild(li);
     });
 }
 
-// ▼ スレ作成（>>1 自動投稿つき）
+// ----------------------
+// スレ作成（>>1 自動投稿）
+// ----------------------
 async function createThread() {
 
     const title = document.getElementById("threadTitle").value.trim();
@@ -75,10 +99,13 @@ async function createThread() {
         return;
     }
 
-    // ---- Step 1: スレッド作成 ----
+    // ---- 1. threads に追加 ----
     const { data: threadData, error: threadErr } = await sb
         .from("threads")
-        .insert({ board_id: boardId, title })
+        .insert({
+            board_id: boardId,
+            title: title
+        })
         .select()
         .single();
 
@@ -89,7 +116,7 @@ async function createThread() {
 
     const threadId = threadData.id;
 
-    // ---- Step 2: 画像アップロード ----
+    // ---- 2. 画像アップロード（任意） ----
     let imageUrl = null;
 
     if (imageFile) {
@@ -107,7 +134,7 @@ async function createThread() {
         }
     }
 
-    // ---- Step 3: >>1 を自動投稿 ----
+    // ---- 3. posts に >>1 を追加 ----
     await sb.from("posts").insert({
         thread_id: threadId,
         name: name,
@@ -115,7 +142,7 @@ async function createThread() {
         image_url: imageUrl
     });
 
-    // ---- 完了 ----
+    // ---- 4. 入力欄クリア ----
     document.getElementById("threadTitle").value = "";
     document.getElementById("postName").value = "";
     document.getElementById("postContent").value = "";
@@ -125,8 +152,12 @@ async function createThread() {
     loadThreads();
 }
 
+// ----------------------
+// 初期実行
+// ----------------------
 loadBoard();
 loadThreads();
+
 </script>
 
 </body>
