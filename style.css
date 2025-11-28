@@ -1,8 +1,132 @@
-body{font-family:'MS PGothic',monospace;background:#FFFFEE;}
-.container{width:80%;margin:20px auto;background:#FFF;padding:20px;border:1px solid #C0C0C0;}
-.thread-link{color:#0000CC;text-decoration:none;}
-.thread-link:hover{text-decoration:underline;}
-.res{border-bottom:1px dotted #AAA;padding:10px 0;}
-.meta{color:#228B22;font-size:14px;}
-.fixed-res{background:#FFFFCC;padding:10px;border:2px solid #F0E68C;margin-bottom:10px;}
-.img{max-width:250px;margin-top:5px;border:1px solid #CCC;}
+/* ======== 全体 ======== */
+body {
+    background: #FFFFEE;
+    font-family: "MS PGothic", sans-serif;
+    font-size: 14px;
+    color: #000;
+    margin: 0;
+    padding: 0;
+}
+
+a {
+    color: #0000CC;
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+
+/* ======== コンテナ ======== */
+.thread-wrapper,
+.board-wrapper {
+    width: 90%;
+    max-width: 1200px;
+    margin: 20px auto;
+    background: #FFFFFF;
+    padding: 20px;
+    border: 1px solid #C0C0C0;
+    box-shadow: 2px 2px 4px #CCC;
+}
+
+/* ======== 板名、スレタイ ======== */
+.board-title,
+.thread-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #000;
+    margin-bottom: 10px;
+}
+
+/* ======== スレッド一覧 ======== */
+.thread-list {
+    list-style: none;
+    padding: 0;
+}
+.thread-list li {
+    padding: 6px 0;
+    border-bottom: 1px dotted #CCC;
+}
+
+/* ======== 新規スレ作成欄 ======== */
+.new-thread-box {
+    background: #F7F7F7;
+    border: 1px solid #CCC;
+    padding: 10px;
+}
+.thread-input {
+    width: 80%;
+    padding: 5px;
+    font-size: 14px;
+}
+.thread-textarea {
+    width: 80%;
+    height: 120px;
+    padding: 5px;
+    font-size: 14px;
+}
+.thread-create-btn {
+    padding: 5px 10px;
+    background: #EEE;
+    border: 1px solid #AAA;
+    cursor: pointer;
+}
+.thread-create-btn:hover {
+    background: #DDD;
+}
+
+/* ======== レス一覧 ======== */
+.res-item {
+    padding: 10px;
+    border-bottom: 1px dotted #888;
+}
+.res-meta {
+    font-weight: bold;
+    color: #008000;
+}
+.res-body {
+    margin-top: 5px;
+    white-space: pre-wrap;
+}
+
+/* ======== レスの画像 ======== */
+.res-image {
+    max-width: 250px;
+    display: block;
+    margin-top: 5px;
+    border: 1px solid #CCC;
+}
+
+/* ======== 投稿フォーム ======== */
+.post-form {
+    background: #F7F7F7;
+    border: 1px solid #CCC;
+    padding: 10px;
+    margin-top: 20px;
+}
+
+.post-input {
+    width: 80%;
+    padding: 5px;
+}
+
+.post-textarea {
+    width: 80%;
+    height: 120px;
+    padding: 5px;
+}
+
+.post-btn {
+    padding: 5px 10px;
+    background: #EEE;
+    border: 1px solid #AAA;
+    cursor: pointer;
+}
+.post-btn:hover {
+    background: #DDD;
+}
+
+/* ======== ハイライト（アンカークリック時） ======== */
+.highlight {
+    background: #FFEE99;
+    transition: background 0.3s;
+}
