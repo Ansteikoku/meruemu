@@ -1,7 +1,7 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const supabaseUrl = "YOUR_URL";
-const supabaseKey = "YOUR_KEY";
+const supabaseUrl = "https://egoxcxdwsgjdlnrjbnec.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnb3hjeGR3c2dqZGxucmpibmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMzUxMDQsImV4cCI6MjA3OTkxMTEwNH0.tr3Bvd6tQEGSog6xjJ8mdi7vFzPBsrhIbzA5-M8OBic";
 export const db = createClient(supabaseUrl, supabaseKey);
 
 export async function loadBoards(){
