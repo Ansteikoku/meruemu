@@ -122,11 +122,13 @@ async function createThread() {
     if (imageFile) {
         const fileName = `thread_${threadId}_1_${Date.now()}.jpg`;
 
-        const { error: uploadErr } = await sb.storage
+        const { data: imageData, error: uploadErr } = await sb.storage
             .from("images")
             .upload(fileName, imageFile);
 
-        if (!uploadErr) {
+        if (uploadErr) {
+            alert("画像アップロード失敗：" + uploadErr.message);
+        } else {
             const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
