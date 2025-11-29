@@ -130,3 +130,16 @@ a:hover {
     background: #FFEE99;
     transition: background 0.3s;
 }
+
+.thread-link {
+    color: #0000FF;           /* 濃い青 */
+    font-size: 20px;          /* リンクを大きく */
+    font-weight: bold;        /* 2chぽく太字 */
+    text-decoration: none;    /* 下線消す（2ch風） */
+    font-family: "MS PGothic", monospace;
+}
+
+.thread-link:hover {
+    text-decoration: underline;   /* ホバーで下線 */
+}
+
