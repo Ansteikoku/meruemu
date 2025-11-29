@@ -13,35 +13,33 @@
 <body>
 
 <script>
-// ▼ ログインチェック
+// ログイン必須
 if (!localStorage.getItem("username")) {
-    window.location.href = "register.html";
+    window.location.href = "login.html";
 }
 </script>
 
 <div class="container">
 
-    <h1 class="title">２ちゃんねる風掲示板</h1>
-
-    <div class="description">
-        <p>ようこそ、<b id="uname"></b> さん。</p>
-        <p>以下の板一覧は Supabase の boards テーブルから自動表示しています。</p>
+    <div style="display:flex; justify-content:space-between;">
+        <h1>２ちゃんねる風掲示板</h1>
+        <button onclick="logout()" class="logout-btn">ログアウト</button>
     </div>
+
+    <p>ようこそ <b id="uname"></b> さん。</p>
 
     <hr>
 
     <h2>板一覧</h2>
-
     <div id="boardList">読み込み中…</div>
 
 </div>
 
 <script>
-// ▼ 名前表示
 document.getElementById("uname").textContent = localStorage.getItem("username");
 
 // ▼ 板一覧読み込み
-async function loadBoards(){
+async function loadBoards() {
     const { data, error } = await sb
         .from("boards")
         .select("*")
@@ -63,6 +61,12 @@ async function loadBoards(){
             </a><br>
         `;
     });
+}
+
+// ▼ ログアウト
+function logout() {
+    localStorage.removeItem("username");
+    window.location.href = "login.html";
 }
 
 loadBoards();
