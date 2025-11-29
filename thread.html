@@ -6,7 +6,6 @@
     <link rel="stylesheet" href="style.css">
     <script src="supabase.js"></script>
 </head>
-
 <body>
 
 <div class="thread-wrapper">
@@ -17,7 +16,6 @@
 
     <hr>
 
-    <!-- ▼▼ レス投稿フォーム ▼▼ -->
     <div class="post-form">
         <h2>■ レス投稿</h2>
 
@@ -32,56 +30,34 @@
 
 </div>
 
-
 <script>
-// ------------------------------
-// URL から thread_id を取得（id に統一）
-// ------------------------------
+// thread id
 const urlParams = new URLSearchParams(window.location.search);
 const threadId = Number(urlParams.get("id"));
 
-if (!threadId) {
-    document.body.innerHTML = "<h2>threadId が取得できませんでした。URL を確認してください。（例: thread.html?id=1）</h2>";
-    throw new Error("threadId missing");
-}
 
-// ------------------------------
-// スレタイ取得
-// ------------------------------
+// タイトル読み込み
 async function loadThreadTitle() {
-    const { data, error } = await sb
+    const { data } = await sb
         .from("threads")
         .select("title")
         .eq("id", threadId)
         .single();
 
-    if (error) {
-        console.error(error);
-        document.getElementById("threadTitle").textContent = "エラー";
-        return;
-    }
-
     document.getElementById("threadTitle").textContent = data.title;
 }
 
-// ------------------------------
-// レス一覧取得
-// ------------------------------
+
+// レス一覧
 async function loadPosts() {
-    const { data, error } = await sb
+    const { data } = await sb
         .from("posts")
         .select("*")
         .eq("thread_id", threadId)
-        .order("id", { ascending: true });
+        .order("id");
 
     const box = document.getElementById("postArea");
     box.innerHTML = "";
-
-    if (error) {
-        box.innerHTML = "<p>読み込みエラー</p>";
-        console.error(error);
-        return;
-    }
 
     data.forEach(p => {
         const div = document.createElement("div");
@@ -104,9 +80,8 @@ async function loadPosts() {
     });
 }
 
-// ------------------------------
-// アンカー機能（>>12）
-// ------------------------------
+
+// アンカー >>12
 function applyAnchors(text) {
     return text.replace(/>>(\d+)/g, (m, num) =>
         `<a href="#res-${num}" onclick="highlight(${num});return false;">>>${num}</a>`
@@ -120,17 +95,15 @@ function highlight(num) {
     setTimeout(() => el.style.background = "", 700);
 }
 
-// ------------------------------
-// 2ch風簡易 ID
-// ------------------------------
+
+// ID生成
 function makeID(name, seed) {
     const base = name + seed;
     return btoa(base).substring(0, 8);
 }
 
-// ------------------------------
-// レス投稿（画像つき）
-// ------------------------------
+
+// レス投稿
 async function postReply() {
     const name = document.getElementById("postName").value.trim() || "名無しさん";
     const content = document.getElementById("postContent").value.trim();
@@ -141,17 +114,17 @@ async function postReply() {
         return;
     }
 
+    // 画像アップロード
     let imageUrl = null;
 
-    // 画像あり → アップロード
     if (imageFile) {
         const fileName = `reply_${threadId}_${Date.now()}.jpg`;
 
-        const { error: uploadErr } = await sb.storage
+        const { error: errUp } = await sb.storage
             .from("images")
             .upload(fileName, imageFile);
 
-        if (!uploadErr) {
+        if (!errUp) {
             const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
@@ -162,21 +135,19 @@ async function postReply() {
     // 投稿
     await sb.from("posts").insert({
         thread_id: threadId,
-        name,
-        content,
+        name: name,
+        content: content,
         image_url: imageUrl
     });
 
-    // 入力欄リセット
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
-    loadPosts(); // 再読み込み
+    loadPosts();
 }
 
-// ------------------------------
-// 初回ロード
-// ------------------------------
+
+// 初期ロード
 loadThreadTitle();
 loadPosts();
 
