@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ユーザー登録</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase.js"></script>
+
+</head>
+<body>
+
+<div class="register-wrapper">
+
+    <h1>ユーザー登録</h1>
+
+    <p>掲示板で使用する名前を登録してください。<br>
+    登録した名前は他人は使用できなくなります。</p>
+
+    <input id="username" type="text" placeholder="名前（コテハン）"><br><br>
+    <input id="password" type="password" placeholder="パスワード"><br><br>
+
+    <button onclick="registerUser()">登録する</button>
+
+    <p id="result"></p>
+
+</div>
+
+<script>
+
+// ---------------------------------------------
+// SHA-256（パスワードハッシュ）
+// ---------------------------------------------
+async function sha256(text){
+    const enc = new TextEncoder().encode(text);
+    const hash = await crypto.subtle.digest("SHA-256", enc);
+    return [...new Uint8Array(hash)]
+        .map(v => v.toString(16).padStart(2,"0"))
+        .join("");
+}
+
+// ---------------------------------------------
+// ユーザー登録
+// ---------------------------------------------
+async function registerUser() {
+
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+
+    const result = document.getElementById("result");
+
+    if (!username || !password) {
+        result.textContent = "名前とパスワードを入力してください。";
+        return;
+    }
+
+    // パスワードをハッシュ化
+    const passwordHash = await sha256(password);
+
+    // Supabase へ保存
+    const { error } = await sb
+        .from("users")
+        .insert({
+            username: username,
+            password_hash: passwordHash
+        });
+
+    if (error) {
+        if (error.code === "23505") {
+            result.textContent = "この名前は既に使用されています。";
+        } else {
+            result.textContent = "エラー：" + error.message;
+        }
+        return;
+    }
+
+    result.textContent = "登録完了！ この名前はあなた専用になりました。";
+
+    // 入力欄クリア
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+}
+
+</script>
+
+</body>
+</html>
