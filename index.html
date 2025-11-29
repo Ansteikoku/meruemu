@@ -22,7 +22,7 @@ if (!username) {
 
 <div class="container">
 
-    <div style="display:flex; justify-content:space-between;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
         <h1>グロチャ民の集い</h1>
         <button onclick="logout()" class="logout-btn">ログアウト</button>
     </div>
@@ -41,7 +41,7 @@ if (!username) {
 document.getElementById("uname").textContent = username;
 
 
-// ▼ 板一覧読み込み
+// ▼ 板一覧読み込み（レスバ板だけ専用ページへ）
 async function loadBoards() {
     const box = document.getElementById("boardList");
 
@@ -57,10 +57,22 @@ async function loadBoards() {
 
     box.innerHTML = "";
 
-    data.forEach(b => {
+    data.forEach(board => {
+        let url = "";
+
+        // ▼ ★ レスバ板（title または slug が "resuba"）だけ専用ページへ
+        if (
+            board.title?.toLowerCase() === "resuba" ||
+            board.slug?.toLowerCase() === "resuba"
+        ) {
+            url = `resuba.html?id=${board.id}`;
+        } else {
+            url = `board.html?id=${board.id}`;
+        }
+
         box.innerHTML += `
-            <a class="thread-link" href="board.html?id=${b.id}">
-                ${b.title}
+            <a class="thread-link" href="${url}">
+                ${board.title}
             </a><br>
         `;
     });
@@ -74,7 +86,7 @@ function logout() {
 }
 
 
-// ▼ 初期実行
+// ▼ 初回実行
 loadBoards();
 </script>
 
