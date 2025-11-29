@@ -5,14 +5,13 @@
     <title>新規登録</title>
     <link rel="stylesheet" href="style.css">
 
-    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
 </head>
 <body>
 
 <script>
-// ▼ すでにログインしている場合は index へ
+// ▼ ログイン済みなら index へ
 if (localStorage.getItem("username")) {
     window.location.href = "index.html";
 }
@@ -21,57 +20,62 @@ if (localStorage.getItem("username")) {
 <div class="container">
     <h1>新規登録</h1>
 
-    <p style="color:red;" id="error"></p>
+    <p>ユーザー名とパスワードを登録してください。</p>
 
     <input id="username" type="text" placeholder="ユーザー名"><br><br>
 
-    <input id="password" type="password" placeholder="パスワード">
-    <button onclick="togglePw()">👁</button>
-    <br><br>
+    <div>
+        <input id="password" type="password" placeholder="パスワード">
+        <button onclick="togglePw()">表示</button>
+    </div>
+    <br>
 
     <button onclick="registerUser()">登録</button>
+
+    <p><a href="login.html">ログインはこちら</a></p>
 </div>
 
 <script>
-
-// パスワード表示切替
+// ▼ パスワード表示/非表示
 function togglePw() {
     const pw = document.getElementById("password");
     pw.type = pw.type === "password" ? "text" : "password";
 }
 
-// ▼ 新規登録
+// ▼ SHA-256 ハッシュ
+async function sha256(text) {
+    const enc = new TextEncoder().encode(text);
+    const hash = await crypto.subtle.digest("SHA-256", enc);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ▼ ユーザー登録
 async function registerUser() {
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
 
     if (!username || !password) {
-        document.getElementById("error").textContent = "入力してください。";
+        alert("ユーザー名とパスワードを入力してください");
         return;
     }
 
-    // ハッシュ化
-    const enc = new TextEncoder();
-    const hashBuffer = await crypto.subtle.digest("SHA-256", enc.encode(password));
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const password_hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const passHash = await sha256(password);
 
-    // 登録処理
     const { error } = await sb.from("users").insert({
         username,
-        password_hash
+        password_hash: passHash
     });
 
     if (error) {
-        document.getElementById("error").textContent =
-            "エラー: " + error.message;
+        if (error.code === "23505") {
+            alert("その名前は既に使われています");
+        } else {
+            alert("エラー：" + error.message);
+        }
         return;
     }
 
-    // 保存
     localStorage.setItem("username", username);
-
-    // index へ移動
     window.location.href = "index.html";
 }
 </script>
