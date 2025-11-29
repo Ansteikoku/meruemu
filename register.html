@@ -5,94 +5,111 @@
     <title>新規登録</title>
     <link rel="stylesheet" href="style.css">
 
-    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
+
+    <style>
+    #logBox {
+        margin-top: 15px;
+        padding: 10px;
+        border: 1px solid #CC0000;
+        background: #FFECEC;
+        color: #CC0000;
+        display: none;
+    }
+    </style>
 </head>
+
 <body>
 
 <div class="container">
-
     <h1>新規登録</h1>
 
-    <p>掲示板で使うユーザー名とパスワードを登録してください。</p>
+    <input id="username" type="text" placeholder="ユーザー名" class="post-input"><br><br>
 
-    <input id="username" type="text" placeholder="ユーザー名（全角OK）" class="post-input"><br><br>
+    <div style="display:flex; align-items:center;">
+        <input id="password" type="password" placeholder="パスワード" class="post-input" style="width:100%;">
+        <button id="togglePw" style="margin-left:5px;">表示</button>
+    </div><br>
 
-    <div style="display:flex; gap:8px; align-items:center;">
-        <input id="password" type="password" placeholder="パスワード" class="post-input" style="flex:1;">
-        <button onclick="togglePass('password')" class="post-btn">表示</button>
-    </div>
-    <br>
+    <button onclick="registerUser()" class="post-btn">登録</button><br><br>
 
-    <button onclick="registerUser()" class="post-btn">登録</button>
+    <a href="login.html">ログインはこちら</a>
 
-    <p>すでに登録済み？ → <a href="login.html">ログインへ</a></p>
-
+    <!-- ▼ ログ表示 -->
+    <div id="logBox"></div>
 </div>
 
 <script>
-// ----------------------------------------
-// SHA-256 ハッシュ関数
-// ----------------------------------------
-async function sha256(text) {
-    const msgUint8 = new TextEncoder().encode(text);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, "0")).join('');
+// ログ出力
+function log(msg){
+    const box = document.getElementById("logBox");
+    box.style.display = "block";
+    box.textContent = msg;
 }
 
-// ----------------------------------------
-// パスワード表示切り替え
-// ----------------------------------------
-function togglePass(id) {
-    const input = document.getElementById(id);
-    input.type = (input.type === "password") ? "text" : "password";
+// パスワード表示切替
+document.getElementById("togglePw").onclick = () => {
+    const pw = document.getElementById("password");
+    if (pw.type === "password") {
+        pw.type = "text";
+        togglePw.textContent = "非表示";
+    } else {
+        pw.type = "password";
+        togglePw.textContent = "表示";
+    }
+};
+
+// SHA-256 ハッシュ
+async function hash(str) {
+    const buf = new TextEncoder().encode(str);
+    const digest = await crypto.subtle.digest("SHA-256", buf);
+    return [...new Uint8Array(digest)]
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
 }
 
-// ----------------------------------------
-// 新規登録
-// ----------------------------------------
 async function registerUser() {
+
     const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value.trim();
+    const password = document.getElementById("password").value;
 
     if (!username || !password) {
-        alert("すべて入力してください");
+        log("ユーザー名とパスワードを入力してください。");
         return;
     }
 
-    // パスワードをハッシュ化
-    const passwordHash = await sha256(password);
-
-    // ユーザー名の重複チェック
-    const { data: existsUser } = await sb
+    // 重複チェック
+    const { data: exist } = await sb
         .from("users")
         .select("id")
         .eq("username", username)
         .maybeSingle();
 
-    if (existsUser) {
-        alert("このユーザー名はすでに使われています");
+    if (exist) {
+        log("⚠ このユーザー名はすでに使用されています。別の名前を使用してください。");
         return;
     }
 
-    // Supabase へ保存
+    // パスワードハッシュ作成
+    const pwdHash = await hash(password);
+
+    // 新規登録
     const { error } = await sb.from("users").insert({
         username,
-        password_hash: passwordHash
+        password_hash: pwdHash
     });
 
     if (error) {
-        alert("登録エラー：" + error.message);
+        log("登録エラー：" + error.message);
         return;
     }
 
-    // ログイン状態にする
+    // 自動ログイン
     localStorage.setItem("username", username);
-
     window.location.href = "index.html";
 }
+
 </script>
 
 </body>
