@@ -30,7 +30,7 @@ if (!localStorage.getItem("username")) {
     <div class="post-form">
         <h2>■ レス投稿</h2>
 
-        <input id="postName" type="text" placeholder="名前（省略時：名無しさん）" class="post-input"><br><br>
+        <input id="postName" type="text" placeholder="名前（省略時：ログイン名）" class="post-input"><br><br>
 
         <textarea id="postContent" placeholder="本文を入力…" class="post-textarea"></textarea><br><br>
 
@@ -42,46 +42,68 @@ if (!localStorage.getItem("username")) {
 </div>
 
 <script>
-// URL
+// ▼ URL から thread_id
 const threadId = new URLSearchParams(window.location.search).get("id");
 
 // ----------------------
 // スレタイ
 // ----------------------
 async function loadThreadTitle() {
-    const { data } = await sb
+    const { data, error } = await sb
         .from("threads")
         .select("title")
         .eq("id", threadId)
         .single();
 
-    document.getElementById("threadTitle").textContent = data.title;
+    if (!error) {
+        document.getElementById("threadTitle").textContent = data.title;
+    }
 }
 
 // ----------------------
-// アンカー処理
+// アンカー（>>番号）
+// クリックで即スクロール
 // ----------------------
 function applyAnchors(text) {
     return text.replace(/>>(\d+)/g, (m, num) =>
-        `<a href="#res-${num}">>>${num}</a>`
+        `<a href="#res-${num}" onclick="jumpTo(${num}); return false;">>>${num}</a>`
     );
 }
 
+function jumpTo(num) {
+    const target = document.getElementById("res-" + num);
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    // 強調表示
+    target.style.background = "#FFEE99";
+    setTimeout(() => {
+        target.style.background = "";
+    }, 800);
+}
+
 // ----------------------
-// レス一覧
+// レス一覧表示
 // ----------------------
 async function loadPosts() {
 
-    const { data: posts } = await sb
+    const { data: posts, error } = await sb
         .from("posts")
         .select("*")
         .eq("thread_id", threadId)
-        .order("id");
+        .order("id", { ascending: true });
 
     const box = document.getElementById("postArea");
     box.innerHTML = "";
 
+    if (error) {
+        box.innerHTML = "<p>読み込み失敗</p>";
+        return;
+    }
+
     posts.forEach(p => {
+
         box.innerHTML += `
             <div class="res-item" id="res-${p.id}">
                 <div class="res-meta">
@@ -104,7 +126,8 @@ async function loadPosts() {
 // ----------------------
 async function postReply() {
 
-    const name = document.getElementById("postName").value.trim() || localStorage.getItem("username");
+    const nameInput = document.getElementById("postName").value.trim();
+    const name = nameInput || localStorage.getItem("username"); // デフォルトはログイン名
     const content = document.getElementById("postContent").value.trim();
     const imageFile = document.getElementById("postImage").files[0];
 
@@ -115,13 +138,20 @@ async function postReply() {
 
     let imageUrl = null;
 
+    // ▼ 画像アップロード
     if (imageFile) {
         const fileName = `reply_${threadId}_${Date.now()}.jpg`;
+
         await sb.storage.from("images").upload(fileName, imageFile);
-        const { data: urlData } = sb.storage.from("images").getPublicUrl(fileName);
+
+        const { data: urlData } = sb.storage
+            .from("images")
+            .getPublicUrl(fileName);
+
         imageUrl = urlData.publicUrl;
     }
 
+    // ▼ 投稿 INSERT
     await sb.from("posts").insert({
         thread_id: threadId,
         name,
@@ -129,9 +159,11 @@ async function postReply() {
         image_url: imageUrl
     });
 
+    // 入力欄クリア
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
+    // 再読み込み
     loadPosts();
 }
 
