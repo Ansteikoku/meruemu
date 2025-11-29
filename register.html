@@ -7,109 +7,86 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
-
-    <style>
-    #logBox {
-        margin-top: 15px;
-        padding: 10px;
-        border: 1px solid #CC0000;
-        background: #FFECEC;
-        color: #CC0000;
-        display: none;
-    }
-    </style>
 </head>
-
 <body>
 
 <div class="container">
     <h1>新規登録</h1>
 
-    <input id="username" type="text" placeholder="ユーザー名" class="post-input"><br><br>
+    <p>掲示板で使用する名前とパスワードを登録してください。</p>
 
-    <div style="display:flex; align-items:center;">
-        <input id="password" type="password" placeholder="パスワード" class="post-input" style="width:100%;">
-        <button id="togglePw" style="margin-left:5px;">表示</button>
-    </div><br>
+    <input id="username" type="text" placeholder="ユーザー名" class="thread-input"><br><br>
 
-    <button onclick="registerUser()" class="post-btn">登録</button><br><br>
+    <div style="position:relative; width:95%;">
+        <input id="password" type="password" placeholder="パスワード" class="thread-input" style="width:100%;">
+        <button type="button" onclick="togglePass()" 
+            style="position:absolute; right:5px; top:5px;">👁</button>
+    </div>
 
-    <a href="login.html">ログインはこちら</a>
+    <br>
+    <button class="thread-create-btn" onclick="registerUser()">登録</button>
 
-    <!-- ▼ ログ表示 -->
-    <div id="logBox"></div>
+    <p>すでにアカウントがありますか？ → <a href="login.html">ログイン</a></p>
+
+    <div id="log" style="margin-top:20px; color:#AA0000;"></div>
 </div>
 
 <script>
-// ログ出力
-function log(msg){
-    const box = document.getElementById("logBox");
-    box.style.display = "block";
-    box.textContent = msg;
-}
-
 // パスワード表示切替
-document.getElementById("togglePw").onclick = () => {
-    const pw = document.getElementById("password");
-    if (pw.type === "password") {
-        pw.type = "text";
-        togglePw.textContent = "非表示";
-    } else {
-        pw.type = "password";
-        togglePw.textContent = "表示";
-    }
-};
-
-// SHA-256 ハッシュ
-async function hash(str) {
-    const buf = new TextEncoder().encode(str);
-    const digest = await crypto.subtle.digest("SHA-256", buf);
-    return [...new Uint8Array(digest)]
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("");
+function togglePass() {
+    const p = document.getElementById("password");
+    p.type = (p.type === "password") ? "text" : "password";
 }
 
+// ▼ 新規登録処理
 async function registerUser() {
 
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
 
+    const logBox = document.getElementById("log");
+    logBox.innerHTML = "";
+
     if (!username || !password) {
-        log("ユーザー名とパスワードを入力してください。");
+        logBox.innerHTML = "⚠ ユーザー名とパスワードを入力してください";
         return;
     }
 
-    // 重複チェック
-    const { data: exist } = await sb
+    // ▼ 重複チェック（maybeSingle は使わない）
+    const { data: existList } = await sb
         .from("users")
         .select("id")
-        .eq("username", username)
-        .maybeSingle();
+        .eq("username", username);
 
-    if (exist) {
-        log("⚠ このユーザー名はすでに使用されています。別の名前を使用してください。");
+    if (existList && existList.length > 0) {
+        logBox.innerHTML = "⚠ このユーザー名はすでに使用されています";
         return;
     }
 
-    // パスワードハッシュ作成
-    const pwdHash = await hash(password);
+    // ▼ パスワードを SHA-256 でハッシュ化
+    const hashBuffer = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(password)
+    );
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-    // 新規登録
-    const { error } = await sb.from("users").insert({
-        username,
-        password_hash: pwdHash
-    });
+    // ▼ 登録
+    const { error: insertErr } = await sb
+        .from("users")
+        .insert({
+            username,
+            password_hash: hashHex
+        });
 
-    if (error) {
-        log("登録エラー：" + error.message);
+    if (insertErr) {
+        logBox.innerHTML = "❌ 登録エラー：" + insertErr.message;
         return;
     }
 
-    // 自動ログイン
-    localStorage.setItem("username", username);
-    window.location.href = "index.html";
+    // 成功 → login.html へ
+    window.location.href = "login.html";
 }
-
 </script>
 
 </body>
