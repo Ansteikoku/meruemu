@@ -3,75 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <title>スレッド</title>
-
     <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
 </head>
-
 <body>
 
 <div class="thread-wrapper">
 
     <h1 id="threadTitle" class="thread-title">読み込み中…</h1>
 
-    <div id="postArea" class="post-area">読み込み中…</div>
+    <hr>
+
+    <!-- ▼ レス一覧 -->
+    <div id="postArea">読み込み中…</div>
 
     <hr>
 
-    <div class="post-form">
+    <!-- ▼ レス投稿フォーム -->
+    <div class="new-post-box">
         <h2>■ レス投稿</h2>
 
         <input id="postName" type="text" placeholder="名前（省略時：名無しさん）" class="post-input"><br><br>
 
-        <textarea id="postContent" placeholder="本文を入力…" class="post-textarea"></textarea><br><br>
+        <textarea id="postContent" placeholder="本文…" class="post-textarea"></textarea><br><br>
 
         <input id="postImage" type="file" accept="image/*"><br><br>
 
-        <button onclick="postReply()" class="post-btn">投稿</button>
+        <button onclick="sendPost()" class="post-btn">投稿</button>
     </div>
 
 </div>
 
 <script>
-// threadId を取得
+// ==========================================
+// URL 取得
+// ==========================================
 const urlParams = new URLSearchParams(window.location.search);
 const threadId = urlParams.get("id");
 
-// ------------------------------
-// スレタイ読み込み
-// ------------------------------
+if (!threadId) {
+    document.getElementById("threadTitle").textContent = "ID 取得エラー";
+}
+
+
+// ==========================================
+// スレタイトル読み込み
+// ==========================================
 async function loadThreadTitle() {
-    const { data } = await sb
+    const { data, error } = await sb
         .from("threads")
         .select("title")
         .eq("id", threadId)
         .single();
 
+    if (error) {
+        document.getElementById("threadTitle").textContent = "エラー";
+        return;
+    }
+
     document.getElementById("threadTitle").textContent = data.title;
 }
 
-// ------------------------------
-// レス一覧読み込み
-// ------------------------------
+
+
+// ==========================================
+// レス一覧（番号を 1 から採番 / アンカー対応）
+// ==========================================
 async function loadPosts() {
-    const { data } = await sb
+    const { data, error } = await sb
         .from("posts")
         .select("*")
         .eq("thread_id", threadId)
-        .order("id");
+        .order("id", { ascending: true });
 
     const box = document.getElementById("postArea");
     box.innerHTML = "";
 
-    data.forEach(p => {
+    if (!data || data.length === 0) {
+        box.innerHTML = "レスがありません。";
+        return;
+    }
+
+    data.forEach((p, index) => {
+        const resNumber = index + 1;   // ★ 表示番号
+
         const div = document.createElement("div");
         div.className = "res-item";
-        div.id = `res-${p.id}`;
+        div.id = `res-${resNumber}`;  // ★ アンカー用 ID
 
         div.innerHTML = `
-            <div class="res-meta">#${p.id} ： ${p.name}</div>
-            <div class="res-body">${applyAnchors(p.content)}</div>
+            <div class="res-meta">#${resNumber} ： ${p.name}</div>
+
+            <div class="res-body">
+                ${applyAnchors(p.content)}
+            </div>
+
             ${p.image_url ? `<img src="${p.image_url}" class="res-image">` : ""}
         `;
 
@@ -79,25 +108,44 @@ async function loadPosts() {
     });
 }
 
-// アンカー処理
+
+
+// ==========================================
+// >>アンカー書き換え（>>3 → #res-3 に飛ぶ）
+// ==========================================
 function applyAnchors(text) {
     if (!text) return "";
     return text.replace(/>>(\d+)/g, (m, num) =>
-        `<a href="#res-${num}" onclick="highlight(${num});return false;">>>${num}</a>`
+        `<a href="#res-${num}" onclick="gotoRes(${num});return false;">>>${num}</a>`
     );
 }
 
-function highlight(num) {
+
+
+// ==========================================
+// アンカーでスクロール + ハイライト
+// ==========================================
+function gotoRes(num) {
     const el = document.getElementById(`res-${num}`);
     if (!el) return;
-    el.style.background = "#ffeb99";
-    setTimeout(() => el.style.background = "", 700);
+
+    el.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+    });
+
+    el.style.background = "#fff3a0";
+    setTimeout(() => {
+        el.style.background = "";
+    }, 900);
 }
 
-// ------------------------------
+
+
+// ==========================================
 // レス投稿
-// ------------------------------
-async function postReply() {
+// ==========================================
+async function sendPost() {
     const name = document.getElementById("postName").value.trim() || "名無しさん";
     const content = document.getElementById("postContent").value.trim();
     const imageFile = document.getElementById("postImage").files[0];
@@ -110,8 +158,7 @@ async function postReply() {
     let imageUrl = null;
 
     if (imageFile) {
-        const fileName = `reply_${threadId}_${Date.now()}.jpg`;
-
+        const fileName = `post_${threadId}_${Date.now()}.jpg`;
         const { error: uploadErr } = await sb.storage
             .from("images")
             .upload(fileName, imageFile);
@@ -126,20 +173,34 @@ async function postReply() {
 
     await sb.from("posts").insert({
         thread_id: threadId,
-        name,
-        content,
+        name: name,
+        content: content,
         image_url: imageUrl
     });
 
+    // 入力欄クリア
+    document.getElementById("postName").value = "";
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
+    // 再読み込み
     loadPosts();
+
+    // 最新レスへ自動スクロール
+    setTimeout(() => {
+        const lastId = document.querySelectorAll(".res-item").length;
+        gotoRes(lastId);
+    }, 400);
 }
 
-// 初回ロード
+
+
+// ==========================================
+// 初期ロード
+// ==========================================
 loadThreadTitle();
 loadPosts();
+
 </script>
 
 </body>
