@@ -2,86 +2,107 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ユーザー登録</title>
-
+    <title>名前登録ページ</title>
     <link rel="stylesheet" href="style.css">
 
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
-
 </head>
+
 <body>
 
 <div class="register-wrapper">
 
-    <h1>ユーザー登録</h1>
+    <h1>名前を登録してください</h1>
 
-    <p>掲示板で使用する名前を登録してください。<br>
-    登録した名前は他人は使用できなくなります。</p>
+    <h3>■ 新規登録</h3>
+    <input id="regName" type="text" placeholder="名前"><br><br>
+    <input id="regPass" type="password" placeholder="パスワード"><br><br>
+    <button onclick="registerUser()">登録</button>
 
-    <input id="username" type="text" placeholder="名前（コテハン）"><br><br>
-    <input id="password" type="password" placeholder="パスワード"><br><br>
+    <hr>
 
-    <button onclick="registerUser()">登録する</button>
-
-    <p id="result"></p>
+    <h3>■ ログイン</h3>
+    <input id="loginName" type="text" placeholder="名前"><br><br>
+    <input id="loginPass" type="password" placeholder="パスワード"><br><br>
+    <button onclick="loginUser()">ログイン</button>
 
 </div>
 
 <script>
-
-// ---------------------------------------------
-// SHA-256（パスワードハッシュ）
-// ---------------------------------------------
-async function sha256(text){
-    const enc = new TextEncoder().encode(text);
-    const hash = await crypto.subtle.digest("SHA-256", enc);
-    return [...new Uint8Array(hash)]
-        .map(v => v.toString(16).padStart(2,"0"))
-        .join("");
+// ---- SHA256 ----
+async function sha256(text) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = [...new Uint8Array(hashBuffer)];
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// ---------------------------------------------
-// ユーザー登録
-// ---------------------------------------------
-async function registerUser() {
+// ---- 新規登録 ----
+async function registerUser(){
+    const name = document.getElementById("regName").value.trim();
+    const pass = document.getElementById("regPass").value.trim();
 
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value;
-
-    const result = document.getElementById("result");
-
-    if (!username || !password) {
-        result.textContent = "名前とパスワードを入力してください。";
+    if(!name || !pass){
+        alert("名前とパスワードを入力してください");
         return;
     }
 
-    // パスワードをハッシュ化
-    const passwordHash = await sha256(password);
+    const password_hash = await sha256(pass);
 
-    // Supabase へ保存
-    const { error } = await sb
+    // 既存ユーザー確認
+    const { data: exists } = await sb
         .from("users")
-        .insert({
-            username: username,
-            password_hash: passwordHash
-        });
+        .select("id")
+        .eq("username", name)
+        .maybeSingle();
 
-    if (error) {
-        if (error.code === "23505") {
-            result.textContent = "この名前は既に使用されています。";
-        } else {
-            result.textContent = "エラー：" + error.message;
-        }
+    if(exists){
+        alert("この名前は既に使われています");
         return;
     }
 
-    result.textContent = "登録完了！ この名前はあなた専用になりました。";
+    // 登録
+    await sb.from("users").insert({
+        username: name,
+        password_hash
+    });
 
-    // 入力欄クリア
-    document.getElementById("username").value = "";
-    document.getElementById("password").value = "";
+    alert("登録完了！ログインしてください。");
+}
+
+// ---- ログイン ----
+async function loginUser(){
+    const name = document.getElementById("loginName").value.trim();
+    const pass = document.getElementById("loginPass").value.trim();
+
+    if(!name || !pass){
+        alert("名前とパスワードを入力してください");
+        return;
+    }
+
+    const password_hash = await sha256(pass);
+
+    const { data } = await sb
+        .from("users")
+        .select("*")
+        .eq("username", name)
+        .eq("password_hash", password_hash)
+        .maybeSingle();
+
+    if(!data){
+        alert("名前またはパスワードが違います");
+        return;
+    }
+
+    // ログイン成功 → ローカル保存
+    localStorage.setItem("username", name);
+    localStorage.setItem("user_id", data.id);
+
+    // index へ移動
+    window.location.href = "index.html";
 }
 
 </script>
