@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>レスバ板</title>
+<link rel="stylesheet" href="style.css">
+<script src="supabase.js"></script>
+</head>
+<body>
+
+<h1>レスバ板</h1>
+
+<div id="create-thread">
+  <input id="thread-title" placeholder="スレタイ">
+  <button onclick="createThread()">スレ作成</button>
+</div>
+
+<hr>
+
+<h2>スレ一覧</h2>
+<ul id="thread-list"></ul>
+
+<script>
+const supabase = createSupabaseClient();
+
+// ---------- スレ一覧取得 ----------
+async function loadThreads() {
+  const { data, error } = await supabase
+    .from("resuba_threads")
+    .select("*")
+    .order("id", { ascending: false });
+
+  const list = document.getElementById("thread-list");
+  list.innerHTML = "";
+
+  if (data) {
+    data.forEach(th => {
+      const li = document.createElement("li");
+      li.innerHTML = `<a href="resuba_thread.html?id=${th.id}">${th.title}</a>`;
+      list.appendChild(li);
+    });
+  }
+}
+
+// ---------- スレ作成 ----------
+async function createThread() {
+  const title = document.getElementById("thread-title").value.trim();
+  if (!title) return alert("スレタイを書け");
+
+  const { error } = await supabase
+    .from("resuba_threads")
+    .insert({ title });
+
+  if (error) {
+    alert("作成失敗");
+    return;
+  }
+  document.getElementById("thread-title").value = "";
+  loadThreads();
+}
+
+loadThreads();
+</script>
+
+</body>
+</html>
