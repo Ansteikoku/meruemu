@@ -1,145 +1,218 @@
-/* ======== 全体 ======== */
+/* =====================================
+     2ch風 全体デザイン
+===================================== */
 body {
+    font-family: "MS PGothic", "ＭＳ Ｐゴシック", sans-serif;
     background: #FFFFEE;
-    font-family: "MS PGothic", sans-serif;
-    font-size: 14px;
-    color: #000;
     margin: 0;
-    padding: 0;
+    padding: 20px;
 }
 
 a {
     color: #0000CC;
     text-decoration: none;
 }
+
 a:hover {
     text-decoration: underline;
 }
 
-/* ======== コンテナ ======== */
-.thread-wrapper,
-.board-wrapper {
+/* =====================================
+      コンテナ
+===================================== */
+.container,
+.board-wrapper,
+.thread-wrapper {
     width: 90%;
-    max-width: 1200px;
-    margin: 20px auto;
+    max-width: 850px;
+    margin: auto;
     background: #FFFFFF;
     padding: 20px;
     border: 1px solid #C0C0C0;
-    box-shadow: 2px 2px 4px #CCC;
+    box-shadow: 2px 2px 4px #DDD;
 }
 
-/* ======== 板名、スレタイ ======== */
+/* =====================================
+      タイトル系
+===================================== */
+.title,
 .board-title,
 .thread-title {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: bold;
-    color: #000;
-    margin-bottom: 10px;
+    border-left: solid 8px #CC6600;
+    padding-left: 10px;
+    margin-bottom: 20px;
 }
 
-/* ======== スレッド一覧 ======== */
-.thread-list {
-    list-style: none;
-    padding: 0;
-}
-.thread-list li {
-    padding: 6px 0;
-    border-bottom: 1px dotted #CCC;
-}
-
-/* ======== 新規スレ作成欄 ======== */
-.new-thread-box {
-    background: #F7F7F7;
-    border: 1px solid #CCC;
+/* =====================================
+      スレッド一覧（Board）
+===================================== */
+.thread-item {
     padding: 10px;
-}
-.thread-input {
-    width: 80%;
-    padding: 5px;
-    font-size: 14px;
-}
-.thread-textarea {
-    width: 80%;
-    height: 120px;
-    padding: 5px;
-    font-size: 14px;
-}
-.thread-create-btn {
-    padding: 5px 10px;
-    background: #EEE;
-    border: 1px solid #AAA;
-    cursor: pointer;
-}
-.thread-create-btn:hover {
-    background: #DDD;
-}
-
-/* ======== レス一覧 ======== */
-.res-item {
-    padding: 10px;
-    border-bottom: 1px dotted #888;
-}
-.res-meta {
-    font-weight: bold;
-    color: #008000;
-}
-.res-body {
-    margin-top: 5px;
-    white-space: pre-wrap;
-}
-
-/* ======== レスの画像 ======== */
-.res-image {
-    max-width: 250px;
-    display: block;
-    margin-top: 5px;
-    border: 1px solid #CCC;
-}
-
-/* ======== 投稿フォーム ======== */
-.post-form {
-    background: #F7F7F7;
-    border: 1px solid #CCC;
-    padding: 10px;
-    margin-top: 20px;
-}
-
-.post-input {
-    width: 80%;
-    padding: 5px;
-}
-
-.post-textarea {
-    width: 80%;
-    height: 120px;
-    padding: 5px;
-}
-
-.post-btn {
-    padding: 5px 10px;
-    background: #EEE;
-    border: 1px solid #AAA;
-    cursor: pointer;
-}
-.post-btn:hover {
-    background: #DDD;
-}
-
-/* ======== ハイライト（アンカークリック時） ======== */
-.highlight {
-    background: #FFEE99;
-    transition: background 0.3s;
+    margin-bottom: 8px;
+    border-bottom: 1px dotted #AAA;
+    background: #FAFAF0;
 }
 
 .thread-link {
-    color: #0000FF;           /* 濃い青 */
-    font-size: 20px;          /* リンクを大きく */
-    font-weight: bold;        /* 2chぽく太字 */
-    text-decoration: none;    /* 下線消す（2ch風） */
-    font-family: "MS PGothic", monospace;
+    font-size: 18px;
+    font-weight: bold;
 }
 
-.thread-link:hover {
-    text-decoration: underline;   /* ホバーで下線 */
+.thread-info {
+    font-size: 13px;
+    color: #555;
+    margin-top: 5px;
 }
 
+/* レス投稿へ移動ボタン */
+.reply-btn {
+    margin-top: 8px;
+    padding: 4px 10px;
+    background: #DDDDFF;
+    border: 1px solid #8888CC;
+    cursor: pointer;
+}
+
+.reply-btn:hover {
+    background: #CCCCFF;
+}
+
+/* =====================================
+      新規スレ作成フォーム
+===================================== */
+.new-thread-box {
+    margin-top: 20px;
+    padding: 15px;
+    background: #FFF8DD;
+    border: 1px solid #E0D0A0;
+}
+
+.thread-input,
+.post-input {
+    width: 95%;
+    padding: 5px;
+    border: 1px solid #AAA;
+}
+
+.thread-textarea,
+.post-textarea {
+    width: 95%;
+    height: 80px;
+    padding: 5px;
+    border: 1px solid #AAA;
+}
+
+.thread-create-btn,
+.post-btn {
+    padding: 6px 12px;
+    background: #FFEE99;
+    border: 1px solid #CCAA55;
+    cursor: pointer;
+}
+
+.thread-create-btn:hover,
+.post-btn:hover {
+    background: #FFE066;
+}
+
+/* =====================================
+      スレッド表示（Thread）
+===================================== */
+.res-item {
+    padding: 10px 5px;
+    border-bottom: 1px dotted #AAA;
+    background: #FFFFFF;
+}
+
+.res-meta {
+    font-size: 13px;
+    color: #008800;
+    font-weight: bold;
+}
+
+.res-body {
+    margin: 5px 0;
+    font-size: 14px;
+    white-space: pre-wrap;
+}
+
+.res-image {
+    max-width: 250px;
+    border: 1px solid #CCC;
+    margin-top: 5px;
+}
+
+/* =====================================
+      投稿フォーム
+===================================== */
+.post-form {
+    margin-top: 25px;
+    background: #FFF8DD;
+    padding: 15px;
+    border: 1px solid #E0D0A0;
+}
+
+/* =====================================
+      ログ表示（デバッグ用）
+===================================== */
+#log {
+    background: #EEEEEE;
+    padding: 10px;
+    border: 1px solid #CCCCCC;
+    margin-top: 15px;
+    font-size: 12px;
+    height: 150px;
+    overflow-y: scroll;
+}
+
+/* =====================================
+      ボタン共通
+===================================== */
+button {
+    font-family: "MS PGothic", sans-serif;
+}
+
+/* =====================================
+      アンカーリンク（>>1）
+===================================== */
+a[href^="#res-"] {
+    color: #0000CC;
+    font-weight: bold;
+}
+
+a[href^="#res-"]:hover {
+    text-decoration: underline;
+}
+
+/* =====================================
+      レスポンスのハイライト
+===================================== */
+.res-item.highlight {
+    background: #FFEE99 !important;
+    transition: background 0.5s ease;
+}
+
+/* =====================================
+      スマホ対応（レスポンシブ）
+===================================== */
+@media screen and (max-width: 600px) {
+    .container,
+    .board-wrapper,
+    .thread-wrapper {
+        width: 95%;
+        padding: 15px;
+    }
+
+    .res-image {
+        max-width: 95%;
+    }
+
+    .thread-input,
+    .post-input,
+    .thread-textarea,
+    .post-textarea {
+        width: 100%;
+    }
+}
