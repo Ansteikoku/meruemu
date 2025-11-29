@@ -43,7 +43,6 @@
 const urlParams = new URLSearchParams(window.location.search);
 const boardId = Number(urlParams.get("id"));
 
-// boardId がない時はエラー
 if (!boardId) {
     alert("boardId が取得できません。URL は board.html?id=数字 です。");
 }
@@ -58,13 +57,9 @@ async function loadBoard() {
         .eq("id", boardId)
         .single();
 
-    if (error) {
-        console.error(error);
-        document.getElementById("boardTitle").textContent = "読み込みエラー";
-        return;
+    if (!error) {
+        document.getElementById("boardTitle").textContent = data.title;
     }
-
-    document.getElementById("boardTitle").textContent = data.title;
 }
 
 
@@ -72,17 +67,16 @@ async function loadBoard() {
 // スレ一覧読み込み
 // ----------------------
 async function loadThreads() {
-    const list = document.getElementById("threadList");
-    list.innerHTML = "";
-
     const { data, error } = await sb
         .from("threads")
         .select("*")
         .eq("board_id", boardId)
         .order("id", { ascending: false });
 
+    const list = document.getElementById("threadList");
+    list.innerHTML = "";
+
     if (error) {
-        console.error(error);
         list.innerHTML = "<li>スレ読み込みエラー</li>";
         return;
     }
@@ -100,7 +94,7 @@ async function loadThreads() {
 
 
 // ----------------------
-// スレ作成（>>1 自動投稿）
+// スレ作成（>>1 自動投稿 + 自動移動）
 // ----------------------
 async function createThread() {
     const title = document.getElementById("threadTitle").value.trim();
@@ -113,7 +107,7 @@ async function createThread() {
         return;
     }
 
-    // ---- threads に挿入 ----
+    // ---- threads に作成 ----
     const { data: thread, error: errThread } = await sb
         .from("threads")
         .insert({
@@ -124,22 +118,20 @@ async function createThread() {
         .single();
 
     if (errThread) {
-        console.error(errThread);
         alert("スレ作成エラー：" + errThread.message);
         return;
     }
 
     const threadId = thread.id;
 
-
     // ---- 画像アップロード（任意） ----
     let imageUrl = null;
 
     if (imageFile) {
-
         const fileName = `thread_${threadId}_1_${Date.now()}.jpg`;
 
-        const { error: errUp } = await sb.storage
+        const { error: errUp } = await sb
+            .storage
             .from("images")
             .upload(fileName, imageFile);
 
@@ -147,45 +139,24 @@ async function createThread() {
             const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
-
             imageUrl = urlData.publicUrl;
-        } else {
-            alert("画像アップロード失敗：" + errUp.message);
         }
     }
 
-
-    // ---- posts に >>1 を投稿 ----
-    const { error: errPost } = await sb.from("posts").insert({
+    // ---- >>1（本文） を投稿 ----
+    await sb.from("posts").insert({
         thread_id: threadId,
         name: name,
         content: content || "（本文なし）",
         image_url: imageUrl
     });
 
-    if (errPost) {
-        console.error(errPost);
-        alert("レス投稿エラー：" + errPost.message);
-        return;
-    }
-
-
-    // ---- 入力欄クリア ----
-    document.getElementById("threadTitle").value = "";
-    document.getElementById("postName").value = "";
-    document.getElementById("postContent").value = "";
-    document.getElementById("postImage").value = "";
-
-    alert("スレッドを作成しました！");
-    loadThreads();
+    // ---- スレへ自動移動 ----
+    window.location.href = `thread.html?id=${threadId}`;
 }
 
-
-
-// 初期ロード
 loadBoard();
 loadThreads();
-
 </script>
 
 </body>
