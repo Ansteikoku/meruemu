@@ -5,55 +5,55 @@
     <title>ログイン</title>
     <link rel="stylesheet" href="style.css">
 
-    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
 </head>
 <body>
 
 <div class="container">
-
-    <h1>ログイン</h1>
+    <h1 class="title">ログイン</h1>
 
     <div class="auth-box">
-        <input id="username" type="text" class="auth-input"
-            placeholder="ユーザー名を入力"><br><br>
 
-        <button onclick="loginUser()" class="auth-btn">ログイン</button>
+        <input id="username" class="auth-input" type="text"
+            placeholder="ユーザー名"><br><br>
+
+        <input id="password" class="auth-input" type="password"
+            placeholder="パスワード"><br><br>
+
+        <button class="auth-btn" onclick="login()">ログイン</button><br><br>
+
+        <a class="auth-link" href="register.html">→ 新規登録はこちら</a>
+
     </div>
-
-    <p>
-        アカウントがありませんか？  
-        → <a href="register.html">新規登録はこちら</a>
-    </p>
-
 </div>
 
 <script>
-async function loginUser() {
-    const name = document.getElementById("username").value.trim();
+async function login() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
 
-    if (!name) {
-        alert("名前を入力してください");
+    if (!username || !password) {
+        alert("ユーザー名とパスワードを入力してください。");
         return;
     }
 
-    // Supabase で存在確認
-    const { data: user } = await sb
+    // ログイン確認
+    const { data: user, error } = await sb
         .from("users")
         .select("*")
-        .eq("name", name)
+        .eq("username", username)
+        .eq("password", password)  // パスワード一致
         .maybeSingle();
 
     if (!user) {
-        alert("ユーザー名が見つかりません");
+        alert("ユーザー名かパスワードが違います。");
         return;
     }
 
-    // ログイン成功 → 保存
-    localStorage.setItem("username", name);
+    // ログイン保存
+    localStorage.setItem("username", username);
 
-    // indexへ
     window.location.href = "index.html";
 }
 </script>
