@@ -46,10 +46,30 @@ if (!localStorage.getItem("username")) {
 const threadId = new URLSearchParams(window.location.search).get("id");
 
 // ----------------------
+// JST（日本時間）変換
+// ----------------------
+function toJST(utc) {
+    const date = new Date(utc);
+    return new Date(date.getTime() + 9 * 60 * 60 * 1000);
+}
+
+// 2ch 形式の日時
+const weekday = ["日","月","火","水","木","金","土"];
+function format2chDate(date) {
+    const m  = String(date.getMonth() + 1).padStart(2, "0");
+    const d  = String(date.getDate()).padStart(2, "0");
+    const w  = weekday[date.getDay()];
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mm = String(date.getMinutes()).padStart(2, "0");
+    const ss = String(date.getSeconds()).padStart(2, "0");
+    return `${m}/${d}(${w}) ${hh}:${mm}:${ss}`;
+}
+
+// ----------------------
 // スレタイ
 // ----------------------
 async function loadThreadTitle() {
-    const { data, error } = await sb
+    const { data } = await sb
         .from("threads")
         .select("title")
         .eq("id", threadId)
@@ -61,7 +81,7 @@ async function loadThreadTitle() {
 }
 
 // ----------------------
-// アンカー処理
+// アンカー処理（>>番号）
 // ----------------------
 function applyAnchors(text) {
     return text.replace(/>>(\d+)/g, (m, num) =>
@@ -69,12 +89,12 @@ function applyAnchors(text) {
     );
 }
 
+// アンカー移動
 function jumpTo(num) {
     const target = document.getElementById(`res-${num}`);
     if (!target) return;
 
     target.scrollIntoView({ behavior: "smooth", block: "center" });
-
     target.classList.add("highlight");
     setTimeout(() => target.classList.remove("highlight"), 1200);
 }
@@ -94,10 +114,15 @@ async function loadPosts() {
     box.innerHTML = "";
 
     posts.forEach(p => {
+
+        // 時間を JST に
+        const jst = toJST(p.created_at);
+        const tstr = format2chDate(jst);
+
         box.innerHTML += `
             <div class="res-item" id="res-${p.post_number}">
                 <div class="res-meta">
-                    ${p.post_number}：${p.name}　${p.created_at}
+                    ${p.post_number}：${p.name}：${tstr}：ID:${p.session_id}
                 </div>
 
                 <div class="res-body">
@@ -125,14 +150,6 @@ async function postReply() {
         return;
     }
 
-    // ▼ 現在のレス番号を取得 → 次が post_number
-    const { data: countData } = await sb
-        .from("posts")
-        .select("post_number", { count: "exact" })
-        .eq("thread_id", threadId);
-
-    const nextNumber = countData.length + 1;
-
     let imageUrl = null;
 
     // 画像アップロード
@@ -146,7 +163,6 @@ async function postReply() {
     // 投稿
     await sb.from("posts").insert({
         thread_id: threadId,
-        post_number: nextNumber,
         name,
         content,
         image_url: imageUrl
@@ -157,6 +173,11 @@ async function postReply() {
 
     loadPosts();
 }
+
+// ----------------------
+// 自動更新（5秒）
+// ----------------------
+setInterval(loadPosts, 5000);
 
 // 初期ロード
 loadThreadTitle();
