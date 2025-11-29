@@ -33,13 +33,20 @@
 
 </div>
 
-
 <script>
-// --------------- URLからthread_id取得 ---------------
+// ------------------------------------
+// URLから thread_id を取得 (?id=123)
+// ------------------------------------
 const urlParams = new URLSearchParams(window.location.search);
-const threadId = urlParams.get("id");
+const threadId = Number(urlParams.get("id"));
 
-// --------------- スレタイ取得 ---------------
+if (!threadId) {
+    alert("threadId が取得できませんでした。URLを確認してください。");
+}
+
+// ------------------------------------
+// スレタイトル取得
+// ------------------------------------
 async function loadThreadTitle() {
     const { data, error } = await sb
         .from("threads")
@@ -47,15 +54,17 @@ async function loadThreadTitle() {
         .eq("id", threadId)
         .single();
 
-    if (error) {
-        document.getElementById("threadTitle").textContent = "エラー";
+    if (error || !data) {
+        document.getElementById("threadTitle").textContent = "エラー（スレが存在しません）";
         return;
     }
 
     document.getElementById("threadTitle").textContent = data.title;
 }
 
-// --------------- レス一覧取得 ---------------
+// ------------------------------------
+// レス一覧読み込み
+// ------------------------------------
 async function loadPosts() {
     const { data, error } = await sb
         .from("posts")
@@ -67,7 +76,7 @@ async function loadPosts() {
     box.innerHTML = "";
 
     if (error) {
-        box.innerHTML = "読み込みエラー";
+        box.innerHTML = "レス読み込み中にエラーが発生しました。";
         return;
     }
 
@@ -92,8 +101,11 @@ async function loadPosts() {
     });
 }
 
-// --------------- アンカー機能（>>12） ---------------
+// ------------------------------------
+// アンカー処理（>>番号）
+// ------------------------------------
 function applyAnchors(text) {
+    if (!text) return "";
     return text.replace(/>>(\d+)/g, (m, num) =>
         `<a href="#res-${num}" onclick="highlight(${num});return false;">>>${num}</a>`
     );
@@ -106,13 +118,17 @@ function highlight(num) {
     setTimeout(() => el.style.background = "", 700);
 }
 
-// --------------- ID生成（簡易2ch式） ---------------
+// ------------------------------------
+// 2ch風 ID 生成（簡易）
+// ------------------------------------
 function makeID(name, seed) {
     const base = name + seed;
     return btoa(base).substring(0, 8);
 }
 
-// --------------- レス投稿（画像つき） ---------------
+// ------------------------------------
+// レス投稿（画像対応）
+// ------------------------------------
 async function postReply() {
 
     const name = document.getElementById("postName").value.trim() || "名無しさん";
@@ -124,7 +140,7 @@ async function postReply() {
         return;
     }
 
-    // ----- 画像アップロード -----
+    // ---- 画像アップロード ----
     let imageUrl = null;
 
     if (imageFile) {
@@ -143,7 +159,7 @@ async function postReply() {
         }
     }
 
-    // ----- 投稿 -----
+    // ---- 投稿 ----
     await sb.from("posts").insert({
         thread_id: threadId,
         name,
@@ -155,10 +171,13 @@ async function postReply() {
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
+    // 再読み込み
     loadPosts();
 }
 
+// ------------------------------------
 // 初期ロード
+// ------------------------------------
 loadThreadTitle();
 loadPosts();
 
