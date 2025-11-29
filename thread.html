@@ -31,76 +31,38 @@
         <button onclick="postReply()" class="post-btn">投稿</button>
     </div>
 
-    <div id="logBox" class="log-box"></div>
-
 </div>
 
 <script>
-// --------------------------------------------------
-// ログ出力
-// --------------------------------------------------
-function log(msg){
-    const box = document.getElementById("logBox");
-    box.innerHTML += msg + "<br>";
-}
-
-// --------------------------------------------------
-// URLから threadId を取得
-// --------------------------------------------------
+// threadId を取得
 const urlParams = new URLSearchParams(window.location.search);
-const threadId = urlParams.get("id") || urlParams.get("t");
+const threadId = urlParams.get("id");
 
-log("▶ Threads ページ開始");
-log("threadId = " + threadId);
-
-if (!threadId) {
-    log("❌ threadId が取得できません");
-}
-
-// --------------------------------------------------
-// スレタイ取得
-// --------------------------------------------------
+// ------------------------------
+// スレタイ読み込み
+// ------------------------------
 async function loadThreadTitle() {
-    log("▶ loadThreadTitle");
-
-    const { data, error } = await sb
+    const { data } = await sb
         .from("threads")
         .select("title")
         .eq("id", threadId)
         .single();
 
-    if (error) {
-        log("❌ スレタイ取得エラー：" + error.message);
-        return;
-    }
-
     document.getElementById("threadTitle").textContent = data.title;
 }
 
-// --------------------------------------------------
-// レス一覧取得
-// --------------------------------------------------
+// ------------------------------
+// レス一覧読み込み
+// ------------------------------
 async function loadPosts() {
-    log("▶ loadPosts");
-
-    const { data, error } = await sb
+    const { data } = await sb
         .from("posts")
         .select("*")
         .eq("thread_id", threadId)
-        .order("id", { ascending: true });
-
-    if (error) {
-        log("❌ レス取得エラー：" + error.message);
-        return;
-    }
+        .order("id");
 
     const box = document.getElementById("postArea");
     box.innerHTML = "";
-
-    if (!data || data.length === 0) {
-        box.innerHTML = "レスがありません。";
-        return;
-    }
 
     data.forEach(p => {
         const div = document.createElement("div");
@@ -108,24 +70,16 @@ async function loadPosts() {
         div.id = `res-${p.id}`;
 
         div.innerHTML = `
-            <div class="res-meta">
-                #${p.id} ： ${p.name}
-            </div>
-
-            <div class="res-body">
-                ${applyAnchors(p.content)}
-            </div>
-
+            <div class="res-meta">#${p.id} ： ${p.name}</div>
+            <div class="res-body">${applyAnchors(p.content)}</div>
             ${p.image_url ? `<img src="${p.image_url}" class="res-image">` : ""}
         `;
 
         box.appendChild(div);
     });
-
-    log("✔ レス表示完了：" + data.length + " 件");
 }
 
-// アンカー
+// アンカー処理
 function applyAnchors(text) {
     if (!text) return "";
     return text.replace(/>>(\d+)/g, (m, num) =>
@@ -140,19 +94,16 @@ function highlight(num) {
     setTimeout(() => el.style.background = "", 700);
 }
 
-// --------------------------------------------------
+// ------------------------------
 // レス投稿
-// --------------------------------------------------
+// ------------------------------
 async function postReply() {
-    log("▶ postReply START");
-
     const name = document.getElementById("postName").value.trim() || "名無しさん";
     const content = document.getElementById("postContent").value.trim();
     const imageFile = document.getElementById("postImage").files[0];
 
     if (!content && !imageFile) {
         alert("本文か画像を入力してください");
-        log("❌ 本文なし");
         return;
     }
 
@@ -165,32 +116,20 @@ async function postReply() {
             .from("images")
             .upload(fileName, imageFile);
 
-        if (uploadErr) {
-            log("❌ 画像アップロードエラー：" + uploadErr.message);
-        } else {
+        if (!uploadErr) {
             const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
             imageUrl = urlData.publicUrl;
-            log("✔ 画像アップロード成功");
         }
     }
 
-    const { error } = await sb
-        .from("posts")
-        .insert({
-            thread_id: threadId,
-            name,
-            content,
-            image_url: imageUrl
-        });
-
-    if (error) {
-        log("❌ 投稿エラー：" + error.message);
-        return;
-    }
-
-    log("✔ 投稿成功、再読み込み");
+    await sb.from("posts").insert({
+        thread_id: threadId,
+        name,
+        content,
+        image_url: imageUrl
+    });
 
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
@@ -198,12 +137,9 @@ async function postReply() {
     loadPosts();
 }
 
-// --------------------------------------------------
-// 初期ロード
-// --------------------------------------------------
+// 初回ロード
 loadThreadTitle();
 loadPosts();
-
 </script>
 
 </body>
