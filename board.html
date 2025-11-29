@@ -3,25 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <title>板 - スレ一覧</title>
-    <link rel="stylesheet" href="style.css">
 
-    <!-- Supabase -->
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
 </head>
+
 <body>
 
 <div class="board-wrapper">
 
-    <h1 id="boardTitle" class="board-title"></h1>
-
-    <!-- ▼ スレ一覧 -->
     <h2>■ スレッド一覧</h2>
-    <div id="threadList">読み込み中…</div>
+    <ul id="threadList" class="thread-list">読み込み中…</ul>
 
     <hr>
 
-    <!-- ▼ 新規スレ作成フォーム -->
     <div class="new-thread-box">
         <h2>■ 新規スレッド作成</h2>
 
@@ -36,192 +32,103 @@
         <button onclick="createThread()" class="thread-create-btn">作成</button>
     </div>
 
-    <!-- ▼ ログ表示 -->
-    <div id="logBox" class="log-box"></div>
-
 </div>
 
 <script>
-// ---------------------------------------------
-// ログ出力
-// ---------------------------------------------
-function log(msg){
-    const box = document.getElementById("logBox");
-    box.innerHTML += msg + "<br>";
-}
-
-// ---------------------------------------------
-// URL パラメータ取得（?b= または ?id= に両対応）
-// ---------------------------------------------
+// URL パラメータから board id を取得
 const urlParams = new URLSearchParams(window.location.search);
-const boardId = urlParams.get("b") || urlParams.get("id");
+const boardId = urlParams.get("id") || urlParams.get("b");
 
-log("▶ Board ページ開始");
-log("boardId = " + boardId);
-
-if(!boardId){
-    log("❌ boardId が取得できませんでした。URL を確認してください。");
-}
-
-// ---------------------------------------------
-// 板名の読み込み
-// ---------------------------------------------
-async function loadBoard() {
-    log("▶ loadBoard START (boardId=" + boardId + ")");
-
-    const { data, error } = await sb
-        .from("boards")
-        .select("title")
-        .eq("id", boardId)
-        .single();
-
-    if (error) {
-        log("❌ board 読込エラー：" + error.message);
-        document.getElementById("boardTitle").textContent = "エラー";
-        return;
-    }
-
-    document.getElementById("boardTitle").textContent = data.title;
-    log("✔ 板名読込成功");
-}
-
-// ---------------------------------------------
-// スレッド一覧
-// 最新レスも表示
-// ---------------------------------------------
+// ------------------------------
+// スレ一覧読み込み
+// ------------------------------
 async function loadThreads() {
-    log("▶ loadThreads START");
-
-    const list = document.getElementById("threadList");
-
-    const { data: threads, error } = await sb
+    const { data, error } = await sb
         .from("threads")
         .select("id, title")
         .eq("board_id", boardId)
         .order("id", { ascending: false });
 
-    if (error) {
-        list.innerHTML = "読み込みエラー";
-        log("❌ threads 読込エラー：" + error.message);
-        return;
-    }
-
-    if (threads.length === 0) {
-        list.innerHTML = "まだスレッドがありません。";
-        return;
-    }
-
+    const list = document.getElementById("threadList");
     list.innerHTML = "";
 
-    for (const t of threads) {
-
-        // 最新レスを取得
-        const { data: lastPost } = await sb
-            .from("posts")
-            .select("content")
-            .eq("thread_id", t.id)
-            .order("id", { ascending: false })
-            .limit(1)
-            .single();
-
-        const latest = lastPost ? lastPost.content : "(レスなし)";
-
-        list.innerHTML += `
-            <div class="thread-item">
-                <a href="thread.html?id=${t.id}" class="thread-link">${t.title}</a><br>
-                <span class="latest-post">${latest}</span>
-            </div>
-            <hr>
-        `;
+    if (error) {
+        list.innerHTML = "<li>読み込みエラー</li>";
+        return;
     }
 
-    log("✔ スレ一覧読込完了");
+    if (data.length === 0) {
+        list.innerHTML = "<li>スレッドはまだありません。</li>";
+        return;
+    }
+
+    data.forEach(t => {
+        const li = document.createElement("li");
+        li.innerHTML = `<a href="thread.html?id=${t.id}" class="thread-link">${t.title}</a>`;
+        list.appendChild(li);
+    });
 }
 
-// ---------------------------------------------
+// ------------------------------
 // スレ作成（>>1 自動投稿）
-// ---------------------------------------------
+// ------------------------------
 async function createThread() {
-
-    log("▶ createThread START");
-
     const title = document.getElementById("threadTitle").value.trim();
     const name = document.getElementById("postName").value.trim() || "名無しさん";
     const content = document.getElementById("postContent").value.trim();
     const imageFile = document.getElementById("postImage").files[0];
 
     if (!title) {
-        log("❌ スレタイ未入力");
         alert("スレタイを入力してください");
         return;
     }
 
-    log("INSERT threads 実行…");
-
+    // ---- threads に追加 ----
     const { data: threadData, error: threadErr } = await sb
         .from("threads")
-        .insert({
-            board_id: boardId,
-            title: title
-        })
+        .insert({ board_id: boardId, title: title })
         .select()
         .single();
 
     if (threadErr) {
-        log("❌ スレ作成エラー：" + threadErr.message);
-        alert("エラー：" + threadErr.message);
+        alert("スレ作成エラー：" + threadErr.message);
         return;
     }
 
-    log("✔ threads 挿入成功 (id=" + threadData.id + ")");
-
     const threadId = threadData.id;
 
-    // 画像アップロード
+    // ---- 画像アップロード（任意） ----
     let imageUrl = null;
 
     if (imageFile) {
         const fileName = `thread_${threadId}_1_${Date.now()}.jpg`;
-        log("画像アップロード開始…");
 
         const { error: uploadErr } = await sb.storage
             .from("images")
             .upload(fileName, imageFile);
 
-        if (uploadErr) {
-            log("❌ 画像アップロード失敗：" + uploadErr.message);
-        } else {
+        if (!uploadErr) {
             const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
             imageUrl = urlData.publicUrl;
-            log("✔ 画像アップロード完了");
         }
     }
 
-    // >>1 を投稿
-    log(">>1 投稿開始…");
-
+    // ---- posts に >>1 を追加 ----
     await sb.from("posts").insert({
         thread_id: threadId,
-        name: name,
+        name,
         content: content || "（本文なし）",
         image_url: imageUrl
     });
 
-    log("✔ >>1 投稿完了");
-
-    // スレ作成後、自動でスレッドに移動
-    log("➡ スレッドへ移動: thread.html?id=" + threadId);
+    // 完了したらスレへ移動
     window.location.href = `thread.html?id=${threadId}`;
 }
 
-// ---------------------------------------------
-// 初期ロード
-// ---------------------------------------------
-loadBoard();
+// 初回ロード
 loadThreads();
-
 </script>
 
 </body>
