@@ -5,35 +5,40 @@
     <title>ログイン</title>
     <link rel="stylesheet" href="style.css">
 
+    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
 </head>
 <body>
 
+<script>
+// ▼ すでにログインしている場合は index へ
+if (localStorage.getItem("username")) {
+    window.location.href = "index.html";
+}
+</script>
+
 <div class="container">
+
     <h1>ログイン</h1>
 
-    <input id="username" type="text" placeholder="ユーザー名" class="thread-input"><br><br>
+    <p style="color:red;" id="error"></p>
 
-    <div style="position:relative; width:95%;">
-        <input id="password" type="password" placeholder="パスワード" class="thread-input" style="width:100%;">
-        <button type="button" onclick="togglePass()" 
-            style="position:absolute; right:5px; top:5px;">👁</button>
-    </div>
+    <input id="username" type="text" placeholder="ユーザー名"><br><br>
 
-    <br>
-    <button class="thread-create-btn" onclick="loginUser()">ログイン</button>
+    <input id="password" type="password" placeholder="パスワード">
+    <button onclick="togglePw()">👁</button>
+    <br><br>
 
-    <p>まだ登録していませんか？ → <a href="register.html">新規登録</a></p>
-
-    <div id="log" style="margin-top:20px; color:#AA0000;"></div>
+    <button onclick="loginUser()">ログイン</button>
 </div>
 
 <script>
-// パスワードの表示切替
-function togglePass() {
-    const p = document.getElementById("password");
-    p.type = (p.type === "password") ? "text" : "password";
+
+// パスワード表示切替
+function togglePw() {
+    const pw = document.getElementById("password");
+    pw.type = pw.type === "password" ? "text" : "password";
 }
 
 // ▼ ログイン処理
@@ -41,36 +46,35 @@ async function loginUser() {
 
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
-    const logBox = document.getElementById("log");
-    logBox.innerHTML = "";
 
     if (!username || !password) {
-        logBox.innerHTML = "⚠ ユーザー名とパスワードを入力してください";
+        document.getElementById("error").textContent = "入力してください。";
         return;
     }
 
-    // ▼ パスワードを同じ方法でハッシュ
-    const hashBuffer = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(password)
-    );
+    // ハッシュ化（SHA-256）
+    const enc = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", enc.encode(password));
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const password_hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-    // ▼ Supabase でユーザー取得
-    const { data: userList } = await sb
+    // ユーザー検索
+    const { data: user, error } = await sb
         .from("users")
         .select("*")
         .eq("username", username)
-        .eq("password_hash", hashHex);
+        .eq("password_hash", password_hash)
+        .single();
 
-    if (!userList || userList.length === 0) {
-        logBox.innerHTML = "❌ ユーザー名またはパスワードが違います";
+    if (error || !user) {
+        document.getElementById("error").textContent = "名前またはパスワードが違います。";
         return;
     }
 
-    // ▼ ログイン成功
+    // 保存
     localStorage.setItem("username", username);
+
+    // index へ移動
     window.location.href = "index.html";
 }
 </script>
