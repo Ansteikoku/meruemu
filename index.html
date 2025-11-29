@@ -13,8 +13,9 @@
 <body>
 
 <script>
-// ログイン必須
-if (!localStorage.getItem("username")) {
+// ▼ ログイン必須
+const username = localStorage.getItem("username");
+if (!username) {
     window.location.href = "login.html";
 }
 </script>
@@ -36,16 +37,18 @@ if (!localStorage.getItem("username")) {
 </div>
 
 <script>
-document.getElementById("uname").textContent = localStorage.getItem("username");
+// ▼ ログイン名表示
+document.getElementById("uname").textContent = username;
+
 
 // ▼ 板一覧読み込み
 async function loadBoards() {
+    const box = document.getElementById("boardList");
+
     const { data, error } = await sb
         .from("boards")
         .select("*")
         .order("id");
-
-    const box = document.getElementById("boardList");
 
     if (error) {
         box.innerHTML = "エラー：" + error.message;
@@ -63,12 +66,15 @@ async function loadBoards() {
     });
 }
 
-// ▼ ログアウト
+
+// ▼ ログアウト処理
 function logout() {
     localStorage.removeItem("username");
     window.location.href = "login.html";
 }
 
+
+// ▼ 初期実行
 loadBoards();
 </script>
 
