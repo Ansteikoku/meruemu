@@ -45,24 +45,45 @@ if (!localStorage.getItem("username")) {
 // URL
 const threadId = new URLSearchParams(window.location.search).get("id");
 
-// ----------------------
-// スレタイ
-// ----------------------
-async function loadThreadTitle() {
-    const { data, error } = await sb
-        .from("threads")
-        .select("title")
-        .eq("id", threadId)
-        .single();
+let lastLoaded = 0;
 
-    if (data) {
-        document.getElementById("threadTitle").textContent = data.title;
-    }
+// ---------------------------------------------
+// 2ch風 日付フォーマット
+// ---------------------------------------------
+function formatDate(dateStr) {
+    const d = new Date(dateStr);
+
+    const week = ["日", "月", "火", "水", "木", "金", "土"];
+    const w = week[d.getDay()];
+
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    const ss = String(d.getSeconds()).padStart(2, "0");
+
+    return `${mm}/${dd}(${w}) ${hh}:${mi}:${ss}`;
 }
 
-// ----------------------
+// ---------------------------------------------
+// 2ch風 ID:xxxxx 生成（毎日変わる）
+// ---------------------------------------------
+function generateID(name, dateStr) {
+    const d = new Date(dateStr);
+
+    const seed = name + d.getFullYear() + d.getMonth() + d.getDate();
+    let hash = 0;
+
+    for (let i = 0; i < seed.length; i++) {
+        hash = (hash * 31 + seed.charCodeAt(i)) & 0xffffffff;
+    }
+
+    return Math.abs(hash).toString(36).substring(0, 8);
+}
+
+// ---------------------------------------------
 // アンカー処理
-// ----------------------
+// ---------------------------------------------
 function applyAnchors(text) {
     return text.replace(/>>(\d+)/g, (m, num) =>
         `<a href="#res-${num}" onclick="jumpTo(${num}); return false;">>>${num}</a>`
@@ -73,33 +94,52 @@ function jumpTo(num) {
     const target = document.getElementById(`res-${num}`);
     if (!target) return;
 
-    // スクロール
     target.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    // ハイライト
     target.classList.add("highlight");
     setTimeout(() => target.classList.remove("highlight"), 1200);
 }
 
-// ----------------------
-// レス一覧
-// ----------------------
-async function loadPosts() {
+// ---------------------------------------------
+// スレタイ
+// ---------------------------------------------
+async function loadThreadTitle() {
+    const { data } = await sb
+        .from("threads")
+        .select("title")
+        .eq("id", threadId)
+        .single();
+
+    if (data) {
+        document.getElementById("threadTitle").textContent = data.title;
+    }
+}
+
+// ---------------------------------------------
+// レス一覧（連番 + 時間 + ID）
+// ---------------------------------------------
+async function loadPosts(auto = false) {
 
     const { data: posts } = await sb
         .from("posts")
         .select("*")
         .eq("thread_id", threadId)
-        .order("post_number", { ascending: true });  // ← スレ内番号順
+        .order("id", { ascending: true });
 
     const box = document.getElementById("postArea");
     box.innerHTML = "";
 
+    let num = 1;
+
     posts.forEach(p => {
+
+        const time = formatDate(p.created_at);
+        const id = generateID(p.name, p.created_at);
+
         box.innerHTML += `
-            <div class="res-item" id="res-${p.post_number}">
+            <div class="res-item" id="res-${num}">
                 <div class="res-meta">
-                    ${p.post_number}：${p.name}
+                    ${num}：${p.name}：${time}：ID:${id}
                 </div>
 
                 <div class="res-body">
@@ -110,12 +150,14 @@ async function loadPosts() {
             </div>
             <hr>
         `;
+
+        num++;
     });
 }
 
-// ----------------------
+// ---------------------------------------------
 // レス投稿
-// ----------------------
+// ---------------------------------------------
 async function postReply() {
 
     const name = document.getElementById("postName").value.trim() || localStorage.getItem("username");
@@ -129,7 +171,6 @@ async function postReply() {
 
     let imageUrl = null;
 
-    // 画像アップロード
     if (imageFile) {
         const fileName = `reply_${threadId}_${Date.now()}.jpg`;
         await sb.storage.from("images").upload(fileName, imageFile);
@@ -137,7 +178,6 @@ async function postReply() {
         imageUrl = urlData.publicUrl;
     }
 
-    // 投稿
     await sb.from("posts").insert({
         thread_id: threadId,
         name,
@@ -145,17 +185,23 @@ async function postReply() {
         image_url: imageUrl
     });
 
-    // フォーム初期化
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
-    // 再読み込み
     loadPosts();
 }
+
+// ---------------------------------------------
+// 自動リロード（5秒）
+// ---------------------------------------------
+setInterval(() => {
+    loadPosts(true);
+}, 5000);
 
 // 初期ロード
 loadThreadTitle();
 loadPosts();
+
 </script>
 
 </body>
