@@ -2,21 +2,30 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>グロチャの集い</title>
+    <title>2ch風掲示板 Index</title>
     <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
 </head>
 
 <body>
 
+<script>
+// ▼ ログインチェック
+if (!localStorage.getItem("username")) {
+    window.location.href = "register.html";
+}
+</script>
+
 <div class="container">
 
-    <h1 class="title">グロチャの集い</h1>
+    <h1 class="title">２ちゃんねる風掲示板</h1>
 
     <div class="description">
-        <p>ここは掲示板トップページやぞ</p>
-        <p>グローバルチャットやヘルプの人たちのために作られた掲示板やで。なかよくしよ</p>
+        <p>ようこそ、<b id="uname"></b> さん。</p>
+        <p>以下の板一覧は Supabase の boards テーブルから自動表示しています。</p>
     </div>
 
     <hr>
@@ -28,7 +37,10 @@
 </div>
 
 <script>
+// ▼ 名前表示
+document.getElementById("uname").textContent = localStorage.getItem("username");
 
+// ▼ 板一覧読み込み
 async function loadBoards(){
     const { data, error } = await sb
         .from("boards")
@@ -46,13 +58,14 @@ async function loadBoards(){
 
     data.forEach(b => {
         box.innerHTML += `
-            <a class="thread-link" href="board.html?id=${b.id}">${b.title}</a><br>
+            <a class="thread-link" href="board.html?id=${b.id}">
+                ${b.title}
+            </a><br>
         `;
     });
 }
 
 loadBoards();
-
 </script>
 
 </body>
