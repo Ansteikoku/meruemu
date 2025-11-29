@@ -1,110 +1,51 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>名前登録ページ</title>
-    <link rel="stylesheet" href="style.css">
-
-    <!-- Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase.js"></script>
+<meta charset="UTF-8">
+<title>ユーザー登録</title>
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<div class="register-wrapper">
+<script>
+// すでにログインしているなら index へ
+if (localStorage.getItem("username")) {
+    window.location.href = "index.html";
+}
+</script>
 
-    <h1>名前を登録してください</h1>
+<div class="container">
+    <h1>新規ユーザー登録</h1>
 
-    <h3>■ 新規登録</h3>
-    <input id="regName" type="text" placeholder="名前"><br><br>
-    <input id="regPass" type="password" placeholder="パスワード"><br><br>
-    <button onclick="registerUser()">登録</button>
+    <p>掲示板で使う名前を登録してください。</p>
 
-    <hr>
+    <input id="regName" type="text" placeholder="名前を入力" class="input"><br><br>
 
-    <h3>■ ログイン</h3>
-    <input id="loginName" type="text" placeholder="名前"><br><br>
-    <input id="loginPass" type="password" placeholder="パスワード"><br><br>
-    <button onclick="loginUser()">ログイン</button>
-
+    <button onclick="registerUser()" class="btn">登録</button>
+    
+    <p style="margin-top:20px;">
+        登録済みの人は <a href="login.html">ログインはこちら</a>
+    </p>
 </div>
 
 <script>
-// ---- SHA256 ----
-async function sha256(text) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(text);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = [...new Uint8Array(hashBuffer)];
-    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-// ---- 新規登録 ----
-async function registerUser(){
+async function registerUser() {
     const name = document.getElementById("regName").value.trim();
-    const pass = document.getElementById("regPass").value.trim();
 
-    if(!name || !pass){
-        alert("名前とパスワードを入力してください");
+    if (!name) {
+        alert("名前を入力してください");
         return;
     }
 
-    const password_hash = await sha256(pass);
-
-    // 既存ユーザー確認
-    const { data: exists } = await sb
-        .from("users")
-        .select("id")
-        .eq("username", name)
-        .maybeSingle();
-
-    if(exists){
-        alert("この名前は既に使われています");
-        return;
-    }
-
-    // 登録
-    await sb.from("users").insert({
-        username: name,
-        password_hash
-    });
-
-    alert("登録完了！ログインしてください。");
-}
-
-// ---- ログイン ----
-async function loginUser(){
-    const name = document.getElementById("loginName").value.trim();
-    const pass = document.getElementById("loginPass").value.trim();
-
-    if(!name || !pass){
-        alert("名前とパスワードを入力してください");
-        return;
-    }
-
-    const password_hash = await sha256(pass);
-
-    const { data } = await sb
-        .from("users")
-        .select("*")
-        .eq("username", name)
-        .eq("password_hash", password_hash)
-        .maybeSingle();
-
-    if(!data){
-        alert("名前またはパスワードが違います");
-        return;
-    }
-
-    // ログイン成功 → ローカル保存
+    // ← 必要であれば Supabase にユーザー保存も可能（任意）
+    // 今回はブラウザ保存だけでOK
     localStorage.setItem("username", name);
-    localStorage.setItem("user_id", data.id);
 
-    // index へ移動
+    alert("登録完了！");
+
     window.location.href = "index.html";
 }
-
 </script>
 
 </body>
