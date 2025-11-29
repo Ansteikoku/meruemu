@@ -14,7 +14,7 @@
 <script>
 // ▼ ログインチェック
 if (!localStorage.getItem("username")) {
-    window.location.href = "register.html";
+    window.location.href = "login.html";
 }
 </script>
 
@@ -49,13 +49,15 @@ const threadId = new URLSearchParams(window.location.search).get("id");
 // スレタイ
 // ----------------------
 async function loadThreadTitle() {
-    const { data } = await sb
+    const { data, error } = await sb
         .from("threads")
         .select("title")
         .eq("id", threadId)
         .single();
 
-    document.getElementById("threadTitle").textContent = data.title;
+    if (data) {
+        document.getElementById("threadTitle").textContent = data.title;
+    }
 }
 
 // ----------------------
@@ -63,23 +65,20 @@ async function loadThreadTitle() {
 // ----------------------
 function applyAnchors(text) {
     return text.replace(/>>(\d+)/g, (m, num) =>
-        `<a href="#res-${num}">>>${num}</a>`
+        `<a href="#res-${num}" onclick="jumpTo(${num}); return false;">>>${num}</a>`
     );
 }
 
-// ----------------------
-// 日付フォーマット（日本時間）
-// ----------------------
-function formatTime(ts) {
-    const d = new Date(ts);
-    const y = d.getFullYear();
-    const m = ("0" + (d.getMonth() + 1)).slice(0 - 2);
-    const day = ("0" + d.getDate()).slice(-2);
-    const h = ("0" + d.getHours()).slice(-2);
-    const min = ("0" + d.getMinutes()).slice(-2);
-    const s = ("0" + d.getSeconds()).slice(-2);
+function jumpTo(num) {
+    const target = document.getElementById(`res-${num}`);
+    if (!target) return;
 
-    return `${y}/${m}/${day} ${h}:${min}:${s}`;
+    // スクロール
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    // ハイライト
+    target.classList.add("highlight");
+    setTimeout(() => target.classList.remove("highlight"), 1200);
 }
 
 // ----------------------
@@ -91,16 +90,16 @@ async function loadPosts() {
         .from("posts")
         .select("*")
         .eq("thread_id", threadId)
-        .order("id");
+        .order("post_number", { ascending: true });  // ← スレ内番号順
 
     const box = document.getElementById("postArea");
     box.innerHTML = "";
 
     posts.forEach(p => {
         box.innerHTML += `
-            <div class="res-item" id="res-${p.id}">
+            <div class="res-item" id="res-${p.post_number}">
                 <div class="res-meta">
-                    ${p.id}：${p.name}　<span style="color:#555;">${formatTime(p.created_at)}</span>
+                    ${p.post_number}：${p.name}
                 </div>
 
                 <div class="res-body">
@@ -130,6 +129,7 @@ async function postReply() {
 
     let imageUrl = null;
 
+    // 画像アップロード
     if (imageFile) {
         const fileName = `reply_${threadId}_${Date.now()}.jpg`;
         await sb.storage.from("images").upload(fileName, imageFile);
@@ -137,6 +137,7 @@ async function postReply() {
         imageUrl = urlData.publicUrl;
     }
 
+    // 投稿
     await sb.from("posts").insert({
         thread_id: threadId,
         name,
@@ -144,9 +145,11 @@ async function postReply() {
         image_url: imageUrl
     });
 
+    // フォーム初期化
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
+    // 再読み込み
     loadPosts();
 }
 
