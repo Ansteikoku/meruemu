@@ -46,34 +46,10 @@ if (!localStorage.getItem("username")) {
 const threadId = new URLSearchParams(window.location.search).get("id");
 
 // ----------------------
-// JST 変換 + 2ch 形式
-// ----------------------
-function formatDate(dateStr) {
-    const d = new Date(dateStr);
-    d.setHours(d.getHours() + 9);  // ← JSTに補正
-
-    const w = ["日", "月", "火", "水", "木", "金", "土"][d.getDay()];
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mi = String(d.getMinutes()).padStart(2, "0");
-    const ss = String(d.getSeconds()).padStart(2, "0");
-
-    return `${mm}/${dd}(${w}) ${hh}:${mi}:${ss}`;
-}
-
-// ----------------------
-// 2ch風 ID 生成
-// ----------------------
-function makeID(name, seed) {
-    return btoa(name + seed).substring(0, 8);
-}
-
-// ----------------------
 // スレタイ
 // ----------------------
 async function loadThreadTitle() {
-    const { data } = await sb
+    const { data, error } = await sb
         .from("threads")
         .select("title")
         .eq("id", threadId)
@@ -85,7 +61,7 @@ async function loadThreadTitle() {
 }
 
 // ----------------------
-// アンカー処理（>>番号）
+// アンカー処理
 // ----------------------
 function applyAnchors(text) {
     return text.replace(/>>(\d+)/g, (m, num) =>
@@ -98,6 +74,7 @@ function jumpTo(num) {
     if (!target) return;
 
     target.scrollIntoView({ behavior: "smooth", block: "center" });
+
     target.classList.add("highlight");
     setTimeout(() => target.classList.remove("highlight"), 1200);
 }
@@ -120,7 +97,7 @@ async function loadPosts() {
         box.innerHTML += `
             <div class="res-item" id="res-${p.post_number}">
                 <div class="res-meta">
-                    ${p.post_number}：${p.name}：${formatDate(p.created_at)}：ID:${makeID(p.name, p.post_number)}
+                    ${p.post_number}：${p.name}　${p.created_at}
                 </div>
 
                 <div class="res-body">
@@ -148,13 +125,13 @@ async function postReply() {
         return;
     }
 
-    // 投稿番号取得
-    const { count } = await sb
+    // ▼ 現在のレス番号を取得 → 次が post_number
+    const { data: countData } = await sb
         .from("posts")
-        .select("*", { count: "exact", head: true })
+        .select("post_number", { count: "exact" })
         .eq("thread_id", threadId);
 
-    const nextNumber = count + 1;
+    const nextNumber = countData.length + 1;
 
     let imageUrl = null;
 
@@ -180,11 +157,6 @@ async function postReply() {
 
     loadPosts();
 }
-
-// ----------------------
-// 自動更新（5秒）
-// ----------------------
-setInterval(loadPosts, 5000);
 
 // 初期ロード
 loadThreadTitle();
