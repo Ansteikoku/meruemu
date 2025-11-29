@@ -26,11 +26,9 @@ if (!localStorage.getItem("username")) {
 
     <hr>
 
-    <!-- ▼ レス投稿フォーム -->
+    <!-- ▼ レス投稿フォーム（※名前欄なし） -->
     <div class="post-form">
         <h2>■ レス投稿</h2>
-
-        <input id="postName" type="text" placeholder="名前（省略時：名無しさん）" class="post-input"><br><br>
 
         <textarea id="postContent" placeholder="本文を入力…" class="post-textarea"></textarea><br><br>
 
@@ -44,6 +42,7 @@ if (!localStorage.getItem("username")) {
 <script>
 // URL
 const threadId = new URLSearchParams(window.location.search).get("id");
+
 
 // ----------------------
 // JST（日本時間）変換
@@ -65,6 +64,7 @@ function format2chDate(date) {
     return `${m}/${d}(${w}) ${hh}:${mm}:${ss}`;
 }
 
+
 // ----------------------
 // スレタイ
 // ----------------------
@@ -79,6 +79,7 @@ async function loadThreadTitle() {
         document.getElementById("threadTitle").textContent = data.title;
     }
 }
+
 
 // ----------------------
 // アンカー処理（>>番号）
@@ -98,6 +99,7 @@ function jumpTo(num) {
     target.classList.add("highlight");
     setTimeout(() => target.classList.remove("highlight"), 1200);
 }
+
 
 // ----------------------
 // レス一覧
@@ -136,12 +138,13 @@ async function loadPosts() {
     });
 }
 
+
 // ----------------------
-// レス投稿
+// レス投稿（名前欄なし）
 // ----------------------
 async function postReply() {
 
-    const name = document.getElementById("postName").value.trim() || localStorage.getItem("username");
+    const name = localStorage.getItem("username");  // ← 名前欄なし
     const content = document.getElementById("postContent").value.trim();
     const imageFile = document.getElementById("postImage").files[0];
 
@@ -168,16 +171,19 @@ async function postReply() {
         image_url: imageUrl
     });
 
+    // 入力クリア
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
     loadPosts();
 }
 
+
 // ----------------------
 // 自動更新（5秒）
 // ----------------------
 setInterval(loadPosts, 5000);
+
 
 // 初期ロード
 loadThreadTitle();
