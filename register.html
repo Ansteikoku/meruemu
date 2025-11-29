@@ -5,87 +5,74 @@
     <title>新規登録</title>
     <link rel="stylesheet" href="style.css">
 
+    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
 </head>
 <body>
 
+<script>
+// ▼ すでにログインしている場合は index へ
+if (localStorage.getItem("username")) {
+    window.location.href = "index.html";
+}
+</script>
+
 <div class="container">
     <h1>新規登録</h1>
 
-    <p>掲示板で使用する名前とパスワードを登録してください。</p>
+    <p style="color:red;" id="error"></p>
 
-    <input id="username" type="text" placeholder="ユーザー名" class="thread-input"><br><br>
+    <input id="username" type="text" placeholder="ユーザー名"><br><br>
 
-    <div style="position:relative; width:95%;">
-        <input id="password" type="password" placeholder="パスワード" class="thread-input" style="width:100%;">
-        <button type="button" onclick="togglePass()" 
-            style="position:absolute; right:5px; top:5px;">👁</button>
-    </div>
+    <input id="password" type="password" placeholder="パスワード">
+    <button onclick="togglePw()">👁</button>
+    <br><br>
 
-    <br>
-    <button class="thread-create-btn" onclick="registerUser()">登録</button>
-
-    <p>すでにアカウントがありますか？ → <a href="login.html">ログイン</a></p>
-
-    <div id="log" style="margin-top:20px; color:#AA0000;"></div>
+    <button onclick="registerUser()">登録</button>
 </div>
 
 <script>
+
 // パスワード表示切替
-function togglePass() {
-    const p = document.getElementById("password");
-    p.type = (p.type === "password") ? "text" : "password";
+function togglePw() {
+    const pw = document.getElementById("password");
+    pw.type = pw.type === "password" ? "text" : "password";
 }
 
-// ▼ 新規登録処理
+// ▼ 新規登録
 async function registerUser() {
-
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
 
-    const logBox = document.getElementById("log");
-    logBox.innerHTML = "";
-
     if (!username || !password) {
-        logBox.innerHTML = "⚠ ユーザー名とパスワードを入力してください";
+        document.getElementById("error").textContent = "入力してください。";
         return;
     }
 
-    // ▼ 重複チェック（maybeSingle は使わない）
-    const { data: existList } = await sb
-        .from("users")
-        .select("id")
-        .eq("username", username);
-
-    if (existList && existList.length > 0) {
-        logBox.innerHTML = "⚠ このユーザー名はすでに使用されています";
-        return;
-    }
-
-    // ▼ パスワードを SHA-256 でハッシュ化
-    const hashBuffer = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(password)
-    );
+    // ハッシュ化
+    const enc = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", enc.encode(password));
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const password_hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-    // ▼ 登録
-    const { error: insertErr } = await sb
-        .from("users")
-        .insert({
-            username,
-            password_hash: hashHex
-        });
+    // 登録処理
+    const { error } = await sb.from("users").insert({
+        username,
+        password_hash
+    });
 
-    if (insertErr) {
-        logBox.innerHTML = "❌ 登録エラー：" + insertErr.message;
+    if (error) {
+        document.getElementById("error").textContent =
+            "エラー: " + error.message;
         return;
     }
 
-    // 成功 → login.html へ
-    window.location.href = "login.html";
+    // 保存
+    localStorage.setItem("username", username);
+
+    // index へ移動
+    window.location.href = "index.html";
 }
 </script>
 
