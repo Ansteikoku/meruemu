@@ -1,49 +1,67 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>ユーザー登録</title>
-<link rel="stylesheet" href="style.css">
-</head>
+    <meta charset="UTF-8">
+    <title>新規登録</title>
+    <link rel="stylesheet" href="style.css">
 
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase.js"></script>
+</head>
 <body>
 
-<script>
-// すでにログインしているなら index へ
-if (localStorage.getItem("username")) {
-    window.location.href = "index.html";
-}
-</script>
-
 <div class="container">
-    <h1>新規ユーザー登録</h1>
 
-    <p>掲示板で使う名前を登録してください。</p>
+    <h1>ユーザー新規登録</h1>
 
-    <input id="regName" type="text" placeholder="名前を入力" class="input"><br><br>
+    <div class="auth-box">
+        <input id="username" type="text" class="auth-input"
+            placeholder="ユーザー名を入力"><br><br>
 
-    <button onclick="registerUser()" class="btn">登録</button>
-    
-    <p style="margin-top:20px;">
-        登録済みの人は <a href="login.html">ログインはこちら</a>
+        <button onclick="registerUser()" class="auth-btn">登録</button>
+    </div>
+
+    <p>
+        すでに登録済みですか？  
+        → <a href="login.html">ログインはこちら</a>
     </p>
+
 </div>
 
 <script>
 async function registerUser() {
-    const name = document.getElementById("regName").value.trim();
+    const name = document.getElementById("username").value.trim();
 
     if (!name) {
         alert("名前を入力してください");
         return;
     }
 
-    // ← 必要であれば Supabase にユーザー保存も可能（任意）
-    // 今回はブラウザ保存だけでOK
+    // 既存ユーザー名チェック
+    const { data: exists } = await sb
+        .from("users")
+        .select("name")
+        .eq("name", name)
+        .maybeSingle();
+
+    if (exists) {
+        alert("この名前はすでに使われています");
+        return;
+    }
+
+    // 新規登録
+    const { error } = await sb.from("users").insert({ name });
+
+    if (error) {
+        alert("エラー：" + error.message);
+        return;
+    }
+
+    // ローカル保存
     localStorage.setItem("username", name);
 
-    alert("登録完了！");
-
+    // Indexへ移動
     window.location.href = "index.html";
 }
 </script>
