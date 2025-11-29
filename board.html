@@ -36,9 +36,9 @@
 
 <script>
 
-// URLパラメータから board ID を取得
+// ▼ URLパラメータから board = b を取得（ここが最重要）
 const urlParams = new URLSearchParams(window.location.search);
-const boardId = urlParams.get("id");
+const boardId = Number(urlParams.get("b"));  // ← 修正済み
 
 // ----------------------
 // 板名の読み込み
