@@ -1,47 +1,59 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>ログイン</title>
-<link rel="stylesheet" href="style.css">
-</head>
+    <meta charset="UTF-8">
+    <title>ログイン</title>
+    <link rel="stylesheet" href="style.css">
 
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase.js"></script>
+</head>
 <body>
 
-<script>
-// すでにログインしているなら index へ
-if (localStorage.getItem("username")) {
-    window.location.href = "index.html";
-}
-</script>
-
 <div class="container">
+
     <h1>ログイン</h1>
 
-    <p>登録した名前でログインしてください。</p>
+    <div class="auth-box">
+        <input id="username" type="text" class="auth-input"
+            placeholder="ユーザー名を入力"><br><br>
 
-    <input id="loginName" type="text" placeholder="名前を入力" class="input"><br><br>
+        <button onclick="loginUser()" class="auth-btn">ログイン</button>
+    </div>
 
-    <button onclick="login()" class="btn">ログイン</button>
+    <p>
+        アカウントがありませんか？  
+        → <a href="register.html">新規登録はこちら</a>
+    </p>
+
 </div>
 
 <script>
-function login() {
-    const name = document.getElementById("loginName").value.trim();
+async function loginUser() {
+    const name = document.getElementById("username").value.trim();
 
     if (!name) {
         alert("名前を入力してください");
         return;
     }
 
-    // 名前照合は Supabase 連携で可能
-    // ここではローカル名前一致チェック
-    if (localStorage.getItem("username") !== name) {
-        alert("名前が一致しません");
+    // Supabase で存在確認
+    const { data: user } = await sb
+        .from("users")
+        .select("*")
+        .eq("name", name)
+        .maybeSingle();
+
+    if (!user) {
+        alert("ユーザー名が見つかりません");
         return;
     }
 
-    alert("ログイン成功！");
+    // ログイン成功 → 保存
+    localStorage.setItem("username", name);
+
+    // indexへ
     window.location.href = "index.html";
 }
 </script>
