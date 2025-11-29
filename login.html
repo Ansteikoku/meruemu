@@ -5,78 +5,81 @@
     <title>ログイン</title>
     <link rel="stylesheet" href="style.css">
 
-    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
 </head>
+
 <body>
 
 <div class="container">
-
     <h1>ログイン</h1>
 
     <input id="username" type="text" placeholder="ユーザー名" class="post-input"><br><br>
 
-    <div style="display:flex; gap:8px; align-items:center;">
-        <input id="password" type="password" placeholder="パスワード" class="post-input" style="flex:1;">
-        <button onclick="togglePass('password')" class="post-btn">表示</button>
-    </div>
-    <br>
+    <div style="position:relative; display:flex; align-items:center;">
+        <input id="password" type="password" placeholder="パスワード" class="post-input" style="width:100%;">
+        <button id="togglePw" style="margin-left:5px;">表示</button>
+    </div><br>
 
-    <button onclick="loginUser()" class="post-btn">ログイン</button>
+    <button onclick="login()" class="post-btn">ログイン</button><br><br>
 
-    <p><a href="register.html">新規登録はこちら</a></p>
-
+    <a href="register.html">新規登録はこちら</a>
 </div>
 
 <script>
-// ----------------------------------------
-// SHA-256 ハッシュ化
-// ----------------------------------------
-async function sha256(text) {
-    const msgUint8 = new TextEncoder().encode(text);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, "0")).join('');
-}
-
-// ----------------------------------------
 // パスワード表示切替
-// ----------------------------------------
-function togglePass(id) {
-    const input = document.getElementById(id);
-    input.type = (input.type === "password") ? "text" : "password";
-}
+document.getElementById("togglePw").onclick = () => {
+    const pw = document.getElementById("password");
+    if (pw.type === "password") {
+        pw.type = "text";
+        togglePw.textContent = "非表示";
+    } else {
+        pw.type = "password";
+        togglePw.textContent = "表示";
+    }
+};
 
-// ----------------------------------------
-// ログイン処理
-// ----------------------------------------
-async function loginUser() {
+async function login() {
     const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value.trim();
+    const password = document.getElementById("password").value;
 
     if (!username || !password) {
-        alert("すべて入力してください");
+        alert("ユーザー名とパスワードを入力してください");
         return;
     }
 
-    const passwordHash = await sha256(password);
-
-    const { data: user, error } = await sb
+    // ユーザ取得
+    const { data: user } = await sb
         .from("users")
         .select("*")
         .eq("username", username)
-        .eq("password_hash", passwordHash)
-        .maybeSingle();
+        .single();
 
-    if (error || !user) {
-        alert("ユーザー名またはパスワードが違います");
+    if (!user) {
+        alert("ユーザー名が存在しません");
         return;
     }
 
-    localStorage.setItem("username", username);
+    // パスワードのハッシュを作る（register.html と同じ方式）
+    const pwdHash = await hash(password);
 
+    if (pwdHash !== user.password_hash) {
+        alert("パスワードが間違っています");
+        return;
+    }
+
+    // ログイン成功
+    localStorage.setItem("username", username);
     window.location.href = "index.html";
+}
+
+// SHA-256 ハッシュ生成
+async function hash(str) {
+    const buf = new TextEncoder().encode(str);
+    const digest = await crypto.subtle.digest("SHA-256", buf);
+    return [...new Uint8Array(digest)]
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
 }
 </script>
 
