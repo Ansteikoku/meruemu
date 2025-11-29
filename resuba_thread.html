@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>レスバスレ</title>
+<link rel="stylesheet" href="style.css">
+<script src="supabase.js"></script>
+</head>
+<body>
+
+<h1 id="thread-title">スレ名</h1>
+<a href="resuba.html">← レスバ板へ戻る</a>
+<hr>
+
+<div id="posts"></div>
+
+<hr>
+
+<h3>書き込み</h3>
+<textarea id="user-text" placeholder="書き込む内容"></textarea><br>
+
+<select id="persona">
+  <option value="normal">普通</option>
+  <option value="argue">レスバ特化</option>
+  <option value="twoch">2ch風</option>
+  <option value="cold">冷酷AI</option>
+  <option value="kansai">関西</option>
+  <option value="cute">可愛い</option>
+</select>
+
+<br><br>
+<button onclick="sendPost()">書き込む</button>
+<button onclick="clearInput()">内容クリア</button>
+
+<script>
+const supabase = createSupabaseClient();
+const params = new URLSearchParams(location.search);
+const threadId = parseInt(params.get("id"));
+
+if (!threadId) {
+  document.body.innerHTML = "ERROR: threadId がありません";
+}
+
+// ---------- スレ情報読み込み ----------
+async function loadThread() {
+  const { data, error } = await supabase
+    .from("resuba_threads")
+    .select("*")
+    .eq("id", threadId)
+    .single();
+
+  if (data) {
+    document.getElementById("thread-title").textContent = data.title;
+  }
+}
+
+// ---------- レス読み込み ----------
+async function loadPosts() {
+  const { data, error } = await supabase
+    .from("resuba_posts")
+    .select("*")
+    .eq("thread_id", threadId)
+    .order("id", { ascending: true });
+
+  const box = document.getElementById("posts");
+  box.innerHTML = "";
+
+  if (data) {
+    data.forEach(p => {
+      const div = document.createElement("div");
+      div.className = "post";
+      div.innerHTML = `<b>${p.id}</b>: ${p.content}`;
+      box.appendChild(div);
+    });
+  }
+}
+
+// ---------- 内容クリア ----------
+function clearInput() {
+  document.getElementById("user-text").value = "";
+}
+
+// ---------- 書き込み + AI 自動返信 ----------
+async function sendPost() {
+  const text = document.getElementById("user-text").value.trim();
+  const persona = document.getElementById("persona").value;
+
+  if (!text) return;
+
+  // --- まずユーザー書き込み保存 ---
+  await supabase.from("resuba_posts").insert({
+    thread_id: threadId,
+    content: text,
+    author: "user"
+  });
+
+  clearInput();
+  loadPosts();
+
+  // --- AIへ Cloudflare Workers 経由で依頼 ---
+  const res = await fetch("/api/resuba-ai", {
+    method: "POST",
+    body: JSON.stringify({
+      threadId,
+      persona
+    })
+  });
+
+  const r = await res.json();
+
+  // AI側が Supabase に直接 insert してくれるので、結果の表示だけ更新
+  loadPosts();
+}
+
+loadThread();
+loadPosts();
+setInterval(loadPosts, 5000); // 自動更新
+</script>
+
+</body>
+</html>
