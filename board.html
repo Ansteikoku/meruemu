@@ -35,40 +35,37 @@
 </div>
 
 <script>
-// ================================
-//  URLパラメータから board_id 取得
-// ================================
+// URLパラメータから board ID を取得
 const urlParams = new URLSearchParams(window.location.search);
 const boardId = Number(urlParams.get("id"));
 
 if (!boardId) {
-    alert("boardId が取得できませんでした。URLを確認してください。");
+    alert("boardId が取得できませんでした。URL を確認してください。\n正しい形式： board.html?id=数字");
 }
 
-// ================================
-//  板名の読み込み
-// ================================
+// ----------------------
+// 板名の読み込み
+// ----------------------
 async function loadBoard() {
-
     const { data, error } = await sb
         .from("boards")
         .select("title")
         .eq("id", boardId)
         .single();
 
-    if (error || !data) {
-        document.getElementById("boardTitle").textContent = "板が存在しません";
+    if (error) {
+        document.getElementById("boardTitle").textContent = "読み込みエラー";
+        console.error(error.message);
         return;
     }
 
     document.getElementById("boardTitle").textContent = data.title;
 }
 
-// ================================
-//  スレ一覧の読み込み
-// ================================
+// ----------------------
+// スレ一覧読み込み
+// ----------------------
 async function loadThreads() {
-
     const { data, error } = await sb
         .from("threads")
         .select("*")
@@ -79,26 +76,25 @@ async function loadThreads() {
     list.innerHTML = "";
 
     if (error) {
-        list.innerHTML = "<li>読み込みエラー</li>";
+        list.innerHTML = "<li>スレ読み込みエラー</li>";
+        console.error(error.message);
         return;
     }
 
     data.forEach(t => {
         const li = document.createElement("li");
-
-        // スレをクリックしたら自動遷移
-        li.innerHTML =
-            `<a href="thread.html?id=${t.id}" class="thread-link">${t.title}</a>`;
-
+        li.innerHTML = `
+            <a href="thread.html?id=${t.id}" class="thread-link">
+                ${t.title}
+            </a>`;
         list.appendChild(li);
     });
 }
 
-// ================================
-//  スレ作成 → >>1 自動投稿 → 直後に thread.html へ移動
-// ================================
+// ----------------------
+// スレ作成（>>1 自動投稿）
+// ----------------------
 async function createThread() {
-
     const title = document.getElementById("threadTitle").value.trim();
     const name = document.getElementById("postName").value.trim() || "名無しさん";
     const content = document.getElementById("postContent").value.trim();
@@ -109,7 +105,7 @@ async function createThread() {
         return;
     }
 
-    // ---------- 1. threads 作成 ----------
+    // ---- 1. threads に追加 ----
     const { data: threadData, error: threadErr } = await sb
         .from("threads")
         .insert({
@@ -121,12 +117,13 @@ async function createThread() {
 
     if (threadErr) {
         alert("スレ作成エラー：" + threadErr.message);
+        console.error(threadErr);
         return;
     }
 
     const threadId = threadData.id;
 
-    // ---------- 2. 画像アップロード ----------
+    // ---- 2. 画像アップロード（任意） ----
     let imageUrl = null;
 
     if (imageFile) {
@@ -136,7 +133,9 @@ async function createThread() {
             .from("images")
             .upload(fileName, imageFile);
 
-        if (!uploadErr) {
+        if (uploadErr) {
+            alert("画像アップロード失敗：" + uploadErr.message);
+        } else {
             const { data: urlData } = sb.storage
                 .from("images")
                 .getPublicUrl(fileName);
@@ -144,7 +143,7 @@ async function createThread() {
         }
     }
 
-    // ---------- 3. posts に >>1 を追加 ----------
+    // ---- 3. posts に >>1 を追加 ----
     await sb.from("posts").insert({
         thread_id: threadId,
         name: name,
@@ -152,19 +151,17 @@ async function createThread() {
         image_url: imageUrl
     });
 
-    // ---------- 4. 入力欄クリア ----------
+    // ---- 入力欄クリア ----
     document.getElementById("threadTitle").value = "";
     document.getElementById("postName").value = "";
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
-    // ---------- 5. 自動遷移 ----------
-    window.location.href = `thread.html?id=${threadId}`;
+    alert("スレッドを作成しました！");
+    loadThreads();
 }
 
-// ================================
-//  初期ロード
-// ================================
+// 初期実行
 loadBoard();
 loadThreads();
 
