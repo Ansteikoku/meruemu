@@ -46,7 +46,7 @@ async function loadBoards(){
 
     data.forEach(b => {
         box.innerHTML += `
-            <a class="thread-link" href="board.html?b=${b.id}">${b.title}</a><br>
+            <a class="thread-link" href="board.html?id=${b.id}">${b.title}</a><br>
         `;
     });
 }
