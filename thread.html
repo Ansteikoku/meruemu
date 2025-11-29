@@ -30,7 +30,7 @@ if (!localStorage.getItem("username")) {
     <div class="post-form">
         <h2>■ レス投稿</h2>
 
-        <input id="postName" type="text" placeholder="名前（省略時：ログイン名）" class="post-input"><br><br>
+        <input id="postName" type="text" placeholder="名前（省略時：名無しさん）" class="post-input"><br><br>
 
         <textarea id="postContent" placeholder="本文を入力…" class="post-textarea"></textarea><br><br>
 
@@ -42,72 +42,65 @@ if (!localStorage.getItem("username")) {
 </div>
 
 <script>
-// ▼ URL から thread_id
+// URL
 const threadId = new URLSearchParams(window.location.search).get("id");
 
 // ----------------------
 // スレタイ
 // ----------------------
 async function loadThreadTitle() {
-    const { data, error } = await sb
+    const { data } = await sb
         .from("threads")
         .select("title")
         .eq("id", threadId)
         .single();
 
-    if (!error) {
-        document.getElementById("threadTitle").textContent = data.title;
-    }
+    document.getElementById("threadTitle").textContent = data.title;
 }
 
 // ----------------------
-// アンカー（>>番号）
-// クリックで即スクロール
+// アンカー処理
 // ----------------------
 function applyAnchors(text) {
     return text.replace(/>>(\d+)/g, (m, num) =>
-        `<a href="#res-${num}" onclick="jumpTo(${num}); return false;">>>${num}</a>`
+        `<a href="#res-${num}">>>${num}</a>`
     );
 }
 
-function jumpTo(num) {
-    const target = document.getElementById("res-" + num);
-    if (!target) return;
+// ----------------------
+// 日付フォーマット（日本時間）
+// ----------------------
+function formatTime(ts) {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const m = ("0" + (d.getMonth() + 1)).slice(0 - 2);
+    const day = ("0" + d.getDate()).slice(-2);
+    const h = ("0" + d.getHours()).slice(-2);
+    const min = ("0" + d.getMinutes()).slice(-2);
+    const s = ("0" + d.getSeconds()).slice(-2);
 
-    target.scrollIntoView({ behavior: "smooth", block: "center" });
-
-    // 強調表示
-    target.style.background = "#FFEE99";
-    setTimeout(() => {
-        target.style.background = "";
-    }, 800);
+    return `${y}/${m}/${day} ${h}:${min}:${s}`;
 }
 
 // ----------------------
-// レス一覧表示
+// レス一覧
 // ----------------------
 async function loadPosts() {
 
-    const { data: posts, error } = await sb
+    const { data: posts } = await sb
         .from("posts")
         .select("*")
         .eq("thread_id", threadId)
-        .order("id", { ascending: true });
+        .order("id");
 
     const box = document.getElementById("postArea");
     box.innerHTML = "";
 
-    if (error) {
-        box.innerHTML = "<p>読み込み失敗</p>";
-        return;
-    }
-
     posts.forEach(p => {
-
         box.innerHTML += `
             <div class="res-item" id="res-${p.id}">
                 <div class="res-meta">
-                    ${p.id}：${p.name}
+                    ${p.id}：${p.name}　<span style="color:#555;">${formatTime(p.created_at)}</span>
                 </div>
 
                 <div class="res-body">
@@ -126,8 +119,7 @@ async function loadPosts() {
 // ----------------------
 async function postReply() {
 
-    const nameInput = document.getElementById("postName").value.trim();
-    const name = nameInput || localStorage.getItem("username"); // デフォルトはログイン名
+    const name = document.getElementById("postName").value.trim() || localStorage.getItem("username");
     const content = document.getElementById("postContent").value.trim();
     const imageFile = document.getElementById("postImage").files[0];
 
@@ -138,20 +130,13 @@ async function postReply() {
 
     let imageUrl = null;
 
-    // ▼ 画像アップロード
     if (imageFile) {
         const fileName = `reply_${threadId}_${Date.now()}.jpg`;
-
         await sb.storage.from("images").upload(fileName, imageFile);
-
-        const { data: urlData } = sb.storage
-            .from("images")
-            .getPublicUrl(fileName);
-
+        const { data: urlData } = sb.storage.from("images").getPublicUrl(fileName);
         imageUrl = urlData.publicUrl;
     }
 
-    // ▼ 投稿 INSERT
     await sb.from("posts").insert({
         thread_id: threadId,
         name,
@@ -159,11 +144,9 @@ async function postReply() {
         image_url: imageUrl
     });
 
-    // 入力欄クリア
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
 
-    // 再読み込み
     loadPosts();
 }
 
