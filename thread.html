@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <title>スレッド</title>
+
     <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase.js"></script>
 </head>
 
@@ -11,13 +15,12 @@
 
 <div class="thread-wrapper">
 
-    <h1 id="threadTitle" class="thread-title"></h1>
+    <h1 id="threadTitle" class="thread-title">読み込み中…</h1>
 
-    <div id="postArea" class="post-area"></div>
+    <div id="postArea" class="post-area">読み込み中…</div>
 
     <hr>
 
-    <!-- ▼▼ レス投稿フォーム ▼▼ -->
     <div class="post-form">
         <h2>■ レス投稿</h2>
 
@@ -28,37 +31,39 @@
         <input id="postImage" type="file" accept="image/*"><br><br>
 
         <button onclick="postReply()" class="post-btn">投稿</button>
-
-        <div id="log" style="margin-top:20px; font-size:12px; color:#555;"></div>
     </div>
+
+    <div id="logBox" class="log-box"></div>
 
 </div>
 
-
 <script>
-// ---------------------------------------------
-// URL から thread ID 取得
-// ---------------------------------------------
-const urlParams = new URLSearchParams(window.location.search);
-const threadId = urlParams.get("id");
-
-if (!threadId) {
-    document.body.innerHTML = "<h2>threadId がありません。</h2>";
-}
-
-// ---------------------------------------------
-// デバッグログ
-// ---------------------------------------------
-function addLog(msg) {
-    const box = document.getElementById("log");
+// --------------------------------------------------
+// ログ出力
+// --------------------------------------------------
+function log(msg){
+    const box = document.getElementById("logBox");
     box.innerHTML += msg + "<br>";
 }
 
-// ---------------------------------------------
-// スレタイ読み込み
-// ---------------------------------------------
+// --------------------------------------------------
+// URL から threadId を取得
+// --------------------------------------------------
+const urlParams = new URLSearchParams(window.location.search);
+const threadId = urlParams.get("id") || urlParams.get("t");
+
+log("▶ Threads ページ開始");
+log("threadId = " + threadId);
+
+if (!threadId) {
+    log("❌ threadId が取得できませんでした");
+}
+
+// --------------------------------------------------
+// スレタイ取得
+// --------------------------------------------------
 async function loadThreadTitle() {
-    addLog("▶ loadThreadTitle START");
+    log("▶ loadThreadTitle START");
 
     const { data, error } = await sb
         .from("threads")
@@ -67,20 +72,36 @@ async function loadThreadTitle() {
         .single();
 
     if (error) {
-        addLog("❌ スレタイ読み込みエラー: " + error.message);
+        log("❌ スレタイ読込エラー：" + error.message);
         return;
     }
 
     document.getElementById("threadTitle").textContent = data.title;
-
-    addLog("✔ スレタイ読み込み完了");
+    log("✔ スレタイ読込成功");
 }
 
-// ---------------------------------------------
-// レス一覧読み込み
-// ---------------------------------------------
+// --------------------------------------------------
+// アンカー変換（>>12）
+// --------------------------------------------------
+function applyAnchors(text) {
+    if (!text) return "";
+    return text.replace(/>>(\d+)/g, (match, num) =>
+        `<a href="#res-${num}" onclick="highlight(${num});return false;">>>${num}</a>`
+    );
+}
+
+function highlight(num) {
+    const el = document.getElementById(`res-${num}`);
+    if (!el) return;
+    el.style.background = "#FFEE99";
+    setTimeout(() => el.style.background = "", 700);
+}
+
+// --------------------------------------------------
+// レス一覧読み込み（1レス目も表示）
+// --------------------------------------------------
 async function loadPosts() {
-    addLog("▶ loadPosts START");
+    log("▶ loadPosts START");
 
     const { data, error } = await sb
         .from("posts")
@@ -89,12 +110,17 @@ async function loadPosts() {
         .order("id", { ascending: true });
 
     if (error) {
-        addLog("❌ レス読み込みエラー: " + error.message);
+        log("❌ posts 読込エラー：" + error.message);
         return;
     }
 
     const box = document.getElementById("postArea");
     box.innerHTML = "";
+
+    if (data.length === 0) {
+        box.innerHTML = "レスがありません。";
+        return;
+    }
 
     data.forEach(p => {
         const div = document.createElement("div");
@@ -103,7 +129,9 @@ async function loadPosts() {
 
         div.innerHTML = `
             <div class="res-meta">
-                ${p.id} ：${p.name} ：ID:${makeID(p.name, p.id)}
+                #${p.id}
+                ：${p.name}
+                ：ID:${makeID(p.name, p.id)}
             </div>
 
             <div class="res-body">
@@ -116,80 +144,58 @@ async function loadPosts() {
         box.appendChild(div);
     });
 
-    addLog("✔ レス読み込み完了");
-
-    // 最下部へスクロール
-    window.scrollTo(0, document.body.scrollHeight);
+    log("✔ レス一覧読込完了（" + data.length + "件）");
 }
 
-// ---------------------------------------------
-// アンカー（>>数字）
-// ---------------------------------------------
-function applyAnchors(text) {
-    return text.replace(/>>(\d+)/g, (m, num) =>
-        `<a href="#res-${num}" onclick="highlight(${num});return false;">>>${num}</a>`
-    );
-}
-
-function highlight(num) {
-    const el = document.getElementById(`res-${num}`);
-    if (!el) return;
-
-    el.style.background = "#FFEE99";
-    setTimeout(() => el.style.background = "", 700);
-}
-
-// ---------------------------------------------
-// ID 生成（簡易 2ch 風）
-// ---------------------------------------------
+// --------------------------------------------------
+// ID生成（2ch風）
+// --------------------------------------------------
 function makeID(name, seed) {
-    const base = name + seed;
-    return btoa(base).substring(0, 8);
+    return btoa(name + seed).substring(0, 8);
 }
 
-// ---------------------------------------------
-// レス投稿
-// ---------------------------------------------
+// --------------------------------------------------
+// レス投稿（画像対応）
+// --------------------------------------------------
 async function postReply() {
-    addLog("▶ postReply START");
+    log("▶ postReply START");
 
     const name = document.getElementById("postName").value.trim() || "名無しさん";
     const content = document.getElementById("postContent").value.trim();
-    const file = document.getElementById("postImage").files[0];
+    const imageFile = document.getElementById("postImage").files[0];
 
-    if (!content && !file) {
+    if (!content && !imageFile) {
         alert("本文か画像を入力してください");
+        log("❌ 本文も画像も無し");
         return;
     }
 
     let imageUrl = null;
 
-    // ---------- 画像アップロード ----------
-    if (file) {
-        addLog("画像アップロード処理開始…");
+    if (imageFile) {
+        const fileName = `reply_${threadId}_${Date.now()}.jpg`;
+        log("画像アップロード中…");
 
-        const fileName = `post_${threadId}_${Date.now()}.jpg`;
-
-        const { error: uploadErr } = await sb.storage
+        const { error: uploadErr } = await sb
             .from("images")
-            .upload(fileName, file);
+            .upload(fileName, imageFile);
 
-        if (uploadErr) {
-            addLog("❌ 画像アップロード失敗: " + uploadErr.message);
-        } else {
-            const { data: urlData } = sb.storage
+        if (!uploadErr) {
+            const { data: urlData } = sb
+                .storage
                 .from("images")
                 .getPublicUrl(fileName);
 
             imageUrl = urlData.publicUrl;
-            addLog("✔ 画像アップロード成功");
+            log("✔ 画像アップロード成功");
+        } else {
+            log("❌ 画像アップロード失敗：" + uploadErr.message);
         }
     }
 
-    // ---------- 投稿処理 ----------
-    addLog("INSERT posts 実行中…");
+    log("▶ INSERT posts 実行…");
 
-    const { error: postErr } = await sb
+    const { error } = await sb
         .from("posts")
         .insert({
             thread_id: threadId,
@@ -198,12 +204,12 @@ async function postReply() {
             image_url: imageUrl
         });
 
-    if (postErr) {
-        addLog("❌ 投稿エラー: " + postErr.message);
+    if (error) {
+        log("❌ 投稿エラー：" + error.message);
         return;
     }
 
-    addLog("✔ 投稿完了");
+    log("✔ 投稿完了");
 
     document.getElementById("postContent").value = "";
     document.getElementById("postImage").value = "";
@@ -211,9 +217,9 @@ async function postReply() {
     loadPosts();
 }
 
-// ---------------------------------------------
+// --------------------------------------------------
 // 初期ロード
-// ---------------------------------------------
+// --------------------------------------------------
 loadThreadTitle();
 loadPosts();
 
