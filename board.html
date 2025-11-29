@@ -15,7 +15,7 @@
 
     <h1 id="boardTitle" class="board-title"></h1>
 
-    <!-- ▼ スレ一覧 -->
+    <!-- ▼ スレッド一覧 -->
     <h2>■ スレッド一覧</h2>
     <div id="threadList">読み込み中…</div>
 
@@ -27,7 +27,8 @@
 
         <input id="threadTitle" type="text" placeholder="スレッドタイトル" class="thread-input"><br><br>
 
-        <input id="postName" type="text" placeholder="名前（省略時：名無しさん）" class="thread-input"><br><br>
+        <input id="userName" type="text" placeholder="名前（登録済み）" class="thread-input"><br><br>
+        <input id="userPass" type="password" placeholder="パスワード" class="thread-input"><br><br>
 
         <textarea id="postContent" placeholder="本文を入力…" class="thread-textarea"></textarea><br><br>
 
@@ -39,142 +40,144 @@
 </div>
 
 <script>
-// ---------------------------------------------
-// URL パラメータ取得（?b= または ?id= の両対応）
-// ---------------------------------------------
+// ----------------------------------------------
+// 共有ログイン・ハッシュ関数
+// ----------------------------------------------
+async function sha256(text) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = [...new Uint8Array(hashBuffer)];
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function getUserIdByLogin(username, password){
+    const passwordHash = await sha256(password);
+
+    const { data, error } = await sb
+        .from("users")
+        .select("*")
+        .eq("username", username)
+        .eq("password_hash", passwordHash)
+        .maybeSingle();
+
+    if (!data) return null;
+    return data.id;
+}
+
+// ----------------------------------------------
+// URL取得
+// ----------------------------------------------
 const urlParams = new URLSearchParams(window.location.search);
 const boardId = urlParams.get("b") || urlParams.get("id");
 
-// ---------------------------------------------
-// 板名の読み込み
-// ---------------------------------------------
+// ----------------------------------------------
+// 板名読み込み
+// ----------------------------------------------
 async function loadBoard() {
-    const { data, error } = await sb
+    const { data } = await sb
         .from("boards")
         .select("title")
         .eq("id", boardId)
         .single();
 
-    if (error) {
-        document.getElementById("boardTitle").textContent = "エラー";
-        return;
-    }
-
     document.getElementById("boardTitle").textContent = data.title;
 }
 
-// ---------------------------------------------
-// スレ一覧（最新レス付き）
-// ---------------------------------------------
+// ----------------------------------------------
+// スレ一覧（最新レスつき）
+// ----------------------------------------------
 async function loadThreads() {
-    const list = document.getElementById("threadList");
 
-    const { data: threads, error } = await sb
+    const { data: threads } = await sb
         .from("threads")
-        .select("id, title")
+        .select("*")
         .eq("board_id", boardId)
         .order("id", { ascending: false });
 
-    if (error) {
-        list.innerHTML = "読み込みエラー";
-        return;
-    }
-
-    if (threads.length === 0) {
-        list.innerHTML = "まだスレッドがありません。";
-        return;
-    }
-
-    list.innerHTML = "";
+    const box = document.getElementById("threadList");
+    box.innerHTML = "";
 
     for (const t of threads) {
 
-        // 最新レスを取得
-        const { data: lastPost } = await sb
+        const { data: last } = await sb
             .from("posts")
             .select("content")
             .eq("thread_id", t.id)
             .order("id", { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
-        const latest = lastPost ? lastPost.content : "(レスなし)";
+        const latest = last ? last.content : "(レスなし)";
 
-        list.innerHTML += `
+        box.innerHTML += `
             <div class="thread-item">
                 <a href="thread.html?id=${t.id}" class="thread-link">${t.title}</a><br>
                 <span class="latest-post">${latest}</span>
-            </div>
-            <hr>
+            </div><hr>
         `;
     }
 }
 
-// ---------------------------------------------
-// スレ作成（>>1 自動投稿 & 自動移動）
-// ---------------------------------------------
+// ----------------------------------------------
+// スレ作成（>>1 含む）
+// ----------------------------------------------
 async function createThread() {
 
     const title = document.getElementById("threadTitle").value.trim();
-    const name = document.getElementById("postName").value.trim() || "名無しさん";
-    const content = document.getElementById("postContent").value.trim();
+    const username = document.getElementById("userName").value.trim();
+    const password = document.getElementById("userPass").value.trim();
+    const content = document.getElementById("postContent").value.trim() || "（本文なし）";
     const imageFile = document.getElementById("postImage").files[0];
 
-    if (!title) {
-        alert("スレタイを入力してください");
+    if (!title) { alert("スレタイを入力"); return; }
+    if (!username || !password) {
+        alert("名前とパスワードを入力してください");
         return;
     }
 
-    // threads に追加
-    const { data: threadData, error: threadErr } = await sb
+    const userId = await getUserIdByLogin(username, password);
+    if (!userId) {
+        alert("名前またはパスワードが違います");
+        return;
+    }
+
+    // threads に user_id を保存
+    const { data: tdata, error } = await sb
         .from("threads")
         .insert({
             board_id: boardId,
-            title: title
+            title: title,
+            user_id: userId
         })
         .select()
         .single();
 
-    if (threadErr) {
-        alert("エラー：" + threadErr.message);
-        return;
-    }
+    const threadId = tdata.id;
 
-    const threadId = threadData.id;
-
-    // 画像アップロード（任意）
+    // 画像
     let imageUrl = null;
-
     if (imageFile) {
         const fileName = `thread_${threadId}_1_${Date.now()}.jpg`;
-
-        const { error: uploadErr } = await sb.storage
-            .from("images")
-            .upload(fileName, imageFile);
-
-        if (!uploadErr) {
-            const { data: urlData } = sb.storage
-                .from("images")
-                .getPublicUrl(fileName);
-            imageUrl = urlData.publicUrl;
-        }
+        await sb.storage.from("images").upload(fileName, imageFile);
+        const { data: urlData } = sb.storage.from("images").getPublicUrl(fileName);
+        imageUrl = urlData.publicUrl;
     }
 
-    // >>1 を投稿
+    // >>1 投稿
     await sb.from("posts").insert({
         thread_id: threadId,
-        name,
-        content: content || "（本文なし）",
-        image_url: imageUrl
+        name: username,
+        content: content,
+        image_url: imageUrl,
+        user_id: userId
     });
 
-    // スレ作成後、自動で thread.html に移動
+    // スレへ移動
     window.location.href = `thread.html?id=${threadId}`;
 }
 
-// ---------------------------------------------
-// 初期ロード
-// ---------------------------------------------
+// ----------------------------------------------
 loadBoard();
 loadThreads();
 
