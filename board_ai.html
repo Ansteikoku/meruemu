@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>板 - AIレスバ板</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- supabase.js は window.sb または sb を用意すること -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+</head>
+<body>
+<script>
+if (!localStorage.getItem("username")) {
+  location.href = "register.html";
+}
+</script>
+
+<div class="board-wrapper">
+  <h1 id="boardTitle" class="board-title">AIレスバ板</h1>
+
+  <h2>■ スレッド一覧</h2>
+  <div id="threadList">読み込み中…</div>
+
+  <hr>
+
+  <div class="ai-box">
+    <h3>スレ作成（AI設定）</h3>
+
+    <label for="aiPersona"><strong>人格：</strong></label><br>
+    <select id="aiPersona" class="ai-select">
+      <option value="none">AIを使わない</option>
+      <option value="default">普通</option>
+      <option value="toxic">挑発</option>
+      <option value="sarcasm">皮肉</option>
+      <option value="logic">論理</option>
+      <option value="childish">小学生煽り</option>
+
+      <option value="psycho">psycho</option>
+      <option value="arrogant">arrogant</option>
+      <option value="guru">guru</option>
+      <option value="tsundere">tsundere</option>
+      <option value="yakuza">yakuza</option>
+      <option value="npc">npc</option>
+      <option value="clown">clown</option>
+      <option value="lawyer">lawyer</option>
+      <option value="professor">professor</option>
+      <option value="comedian">comedian</option>
+      <option value="sigma">sigma</option>
+      <option value="bully">bully</option>
+      <option value="ghost">ghost</option>
+      <option value="glitch">glitch</option>
+      <option value="prophecy">prophecy</option>
+      <option value="judge">judge</option>
+      <option value="troll">troll</option>
+      <option value="saint">saint</option>
+      <option value="merchant">merchant</option>
+      <option value="baby">baby</option>
+      <option value="samurai">samurai</option>
+      <option value="devil">devil</option>
+      <option value="robot">robot</option>
+      <option value="senpai">senpai</option>
+      <option value="genz">genz</option>
+
+      <option value="nanJ">なんJ</option>
+      <option value="teacher">先生</option>
+      <option value="inky">陰キャ</option>
+      <option value="chuuni">厨二</option>
+    </select>
+
+    <label for="aiBoost"><strong>強化：</strong></label><br>
+    <select id="aiBoost" class="ai-select">
+      <option value="none">なし</option>
+      <option value="long">長文強化</option>
+      <option value="short">短文鋭利</option>
+      <option value="highlogic">論理強化</option>
+      <option value="aggressive">攻撃性UP</option>
+      <option value="comic">ギャグ混ぜ</option>
+    </select>
+
+    <div style="margin-top:8px;">
+      <label><input type="checkbox" id="aiFirst" checked> AI先制攻撃（作成直後にAIが>>2で応答）</label><br>
+      <label><input type="checkbox" id="aiAuto"> AI自動返信（レスがつくたびAIが反応）</label>
+    </div>
+  </div>
+
+  <hr>
+
+  <div class="new-thread-box">
+    <h2>■ 新規スレッド作成</h2>
+
+    <input id="threadTitleInput" class="thread-input" placeholder="スレッドタイトル"><br><br>
+    <input id="postNameInput" class="thread-input" placeholder="名前（省略：ログイン名）"><br><br>
+    <textarea id="postContentInput" class="thread-textarea" placeholder="本文を入力…"></textarea><br><br>
+    <input id="postImageInput" type="file" accept="image/*"><br><br>
+    <button id="createThreadBtn" class="thread-create-btn">作成</button>
+  </div>
+</div>
+
+<script>
+/* ====== 設定（デプロイ先に合わせて置き換えてください） ====== */
+const WORKERS_SEND_URL = "https://your-worker-domain.workers.dev/send"; // Worker の先制/auto 用エンドポイント
+const boardId = new URLSearchParams(location.search).get("id") || "ai"; // board id（既存と合わせて）
+
+// Supabase クライアントは外部 supabase.js で `sb` として定義されている想定
+if (typeof sb === "undefined" && typeof window.sb !== "undefined") window.sb = window.sb || sb;
+
+// 初期ロード
+loadBoard();
+loadThreads();
+
+async function loadBoard() {
+  try {
+    const { data } = await sb.from("boards").select("title").eq("id", boardId).single();
+    if (data) document.getElementById("boardTitle").textContent = data.title + "（AIレスバ）";
+  } catch (e) { console.error(e); }
+}
+
+async function loadThreads() {
+  const list = document.getElementById("threadList");
+  list.innerHTML = "読み込み中…";
+  try {
+    const { data: threads } = await sb.from("threads").select("id,title").eq("board_id", boardId).order("id", { ascending: false });
+    list.innerHTML = "";
+    if (!threads || threads.length === 0) {
+      list.innerHTML = "まだスレッドがありません。";
+      return;
+    }
+    for (const t of threads) {
+      const { data: last } = await sb.from("posts").select("content").eq("thread_id", t.id).order("post_number", { ascending: false }).limit(1).maybeSingle();
+      const latest = last ? last.content : "(レスなし)";
+      const wrap = document.createElement("div");
+      wrap.className = "thread-item";
+      wrap.innerHTML = `
+        <a href="thread_ai.html?id=${t.id}" class="thread-link">${escapeHtml(t.title)}</a><br>
+        <div class="thread-info">${escapeHtml(truncate(latest,140))}</div>
+      `;
+      list.appendChild(wrap);
+      list.appendChild(document.createElement("hr"));
+    }
+  } catch (e) {
+    console.error(e);
+    list.innerHTML = "読み込みエラー";
+  }
+}
+
+// スレ作成
+document.getElementById("createThreadBtn").addEventListener("click", async () => {
+  const title = document.getElementById("threadTitleInput").value.trim();
+  const name = document.getElementById("postNameInput").value.trim() || localStorage.getItem("username");
+  const content = document.getElementById("postContentInput").value.trim();
+  const imageFile = document.getElementById("postImageInput").files[0];
+
+  const persona = document.getElementById("aiPersona").value;
+  const boost = document.getElementById("aiBoost").value;
+  const first = document.getElementById("aiFirst").checked;
+  const auto = document.getElementById("aiAuto").checked;
+
+  if (!title) { alert("スレタイを入力してください"); return; }
+
+  try {
+    // threads に AI設定つきで作成
+    const { data: threadData, error: threadErr } = await sb.from("threads").insert({
+      board_id: boardId,
+      title,
+      ai_persona: persona,
+      ai_boost: boost,
+      ai_first: first,
+      ai_auto: auto
+    }).select().single();
+
+    if (threadErr) { throw threadErr; }
+
+    const threadId = threadData.id;
+
+    // 画像アップロード（あれば）
+    let imageUrl = null;
+    if (imageFile) {
+      const filename = `thread_${threadId}_1_${Date.now()}.jpg`;
+      const up = await sb.storage.from("images").upload(filename, imageFile);
+      if (!up.error) {
+        const { data: urlData } = sb.storage.from("images").getPublicUrl(filename);
+        imageUrl = urlData.publicUrl;
+      }
+    }
+
+    // >>1 を投稿
+    const { error: postErr } = await sb.from("posts").insert({
+      thread_id: threadId,
+      name,
+      content: content || "（本文なし）",
+      image_url: imageUrl
+    });
+
+    if (postErr) { throw postErr; }
+
+    // 先制攻撃フラグがあれば Workers 通知（非同期）
+    if (first && persona && persona !== "none") {
+      fetch(WORKERS_SEND_URL, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({ thread_id: threadId, persona, boost, mode: "first" })
+      }).catch(e => console.warn("worker notify failed", e));
+    }
+
+    // 移動
+    location.href = `thread_ai.html?id=${threadId}`;
+  } catch (e) {
+    console.error(e);
+    alert("作成に失敗しました: " + (e.message || e));
+  }
+});
+
+// helpers
+function escapeHtml(s){ if(!s) return ""; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;'}[c])); }
+function truncate(s,n){ if(!s) return ""; return s.length>n? s.slice(0,n-1)+"…": s; }
+</script>
+</body>
+</html>
