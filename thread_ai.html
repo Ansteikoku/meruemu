@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>スレッド - AI対応</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+</head>
+<body>
+<script>
+if (!localStorage.getItem("username")) location.href = "register.html";
+</script>
+
+<div class="thread-wrapper">
+  <h1 id="threadTitle" class="thread-title">読み込み中…</h1>
+
+  <div id="postArea">読み込み中…</div>
+
+  <hr>
+
+  <div class="post-form">
+    <h2>■ レス投稿</h2>
+    <textarea id="postContent" class="post-textarea" placeholder="本文を入力…"></textarea><br><br>
+    <input id="postImage" type="file" accept="image/*"><br><br>
+    <button id="postBtn" class="post-btn">投稿</button>
+  </div>
+</div>
+
+<script>
+/* 設定 */
+const WORKERS_SEND_URL = "https://your-worker-domain.workers.dev/send"; // Worker URL
+const threadId = new URLSearchParams(location.search).get("id");
+
+// thread の AI 設定を保持
+let threadAI = { persona: "none", boost:"none", ai_first:false, ai_auto:false };
+
+// supabase client: sb（外部 supabase.js が用意）
+if (typeof sb === "undefined" && typeof window.sb !== "undefined") window.sb = window.sb || sb;
+
+// 初期ロード
+loadThread();
+loadPosts();
+setInterval(loadPosts, 4000); // 定期更新
+
+// load thread meta
+async function loadThread(){
+  try {
+    const { data: thread } = await sb.from("threads").select("*").eq("id", threadId).single();
+    if (!thread) { document.getElementById("threadTitle").textContent = "スレが見つかりません"; return; }
+    document.getElementById("threadTitle").textContent = thread.title;
+    threadAI.persona = thread.ai_persona || "none";
+    threadAI.boost = thread.ai_boost || "none";
+    threadAI.ai_first = !!thread.ai_first;
+    threadAI.ai_auto = !!thread.ai_auto;
+  } catch (e) { console.error(e); }
+}
+
+// load posts
+async function loadPosts(){
+  try {
+    const { data: posts } = await sb.from("posts").select("*").eq("thread_id", threadId).order("post_number",{ ascending: true });
+    const area = document.getElementById("postArea");
+    area.innerHTML = "";
+    if (!posts || posts.length === 0) {
+      area.innerHTML = "まだレスがありません。";
+      return;
+    }
+    for (const p of posts) {
+      const div = document.createElement("div");
+      div.className = "res-item";
+      div.id = `res-${p.post_number}`;
+      div.innerHTML = `
+        <div class="res-meta">${p.post_number}：${escapeHtml(p.name)}：${formatJST(p.created_at)}：ID:${escapeHtml(p.session_id || '')}</div>
+        <div class="res-body">${applyAnchors(escapeHtml(p.content))}${p.image_url?'<br><img src="'+escapeHtml(p.image_url)+'" class="res-image">':''}</div>
+      `;
+
+      // AI 個別ボタン（クリックでそのポストをトリガーにAIを呼ぶ）
+      const aiBtn = document.createElement("button");
+      aiBtn.className = "ai-auto-btn";
+      aiBtn.textContent = "AIで返す";
+      aiBtn.addEventListener("click", () => triggerAiForPost(p.post_number, p.content));
+      div.appendChild(aiBtn);
+
+      area.appendChild(div);
+      area.appendChild(document.createElement("hr"));
+    }
+  } catch (e) { console.error(e); }
+}
+
+// 投稿処理
+document.getElementById("postBtn").addEventListener("click", async () => {
+  const content = document.getElementById("postContent").value.trim();
+  const file = document.getElementById("postImage").files[0];
+  const name = localStorage.getItem("username");
+
+  if (!content && !file) { alert("本文か画像を入れてください"); return; }
+
+  try {
+    let imageUrl = null;
+    if (file) {
+      const filename = `post_${threadId}_${Date.now()}.jpg`;
+      const up = await sb.storage.from("images").upload(filename, file);
+      if (!up.error) {
+        const { data: urlData } = sb.storage.from("images").getPublicUrl(filename);
+        imageUrl = urlData.publicUrl;
+      }
+    }
+
+    // insert post
+    const { error } = await sb.from("posts").insert({
+      thread_id: threadId,
+      name,
+      content,
+      image_url: imageUrl
+    });
+
+    if (error) throw error;
+
+    // もしスレが ai_auto 設定なら Worker に自動返信を要請
+    if (threadAI.ai_auto && threadAI.persona && threadAI.persona !== "none") {
+      // 非同期で通知（UIをブロックしない）
+      fetch(WORKERS_SEND_URL, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({
+          thread_id: threadId,
+          persona: threadAI.persona,
+          boost: threadAI.boost,
+          mode: "auto"
+        })
+      }).catch(e => console.warn("worker notify failed", e));
+    }
+
+    // clear form and reload posts
+    document.getElementById("postContent").value = "";
+    document.getElementById("postImage").value = "";
+    loadPosts();
+  } catch (e) {
+    console.error(e);
+    alert("投稿に失敗しました: " + (e.message || e));
+  }
+});
+
+// トリガー：指定ポストに AI を返させる（個別呼び出し）
+async function triggerAiForPost(postNumber, postContent) {
+  if (!threadAI.persona || threadAI.persona === "none") {
+    alert("このスレはAI設定がありません。");
+    return;
+  }
+
+  // 送信先 Worker に last_post_text を付けて POST
+  try {
+    const res = await fetch(WORKERS_SEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        thread_id: threadId,
+        persona: threadAI.persona,
+        boost: threadAI.boost,
+        mode: "reply",
+        last_post_text: postContent,
+        target_post_number: postNumber
+      })
+    });
+    const json = await res.json();
+    if (json?.status === "ok") {
+      // 成功したら再読み込みして AI のレスを確認
+      setTimeout(loadPosts, 800);
+    } else {
+      console.warn("worker reply failed", json);
+      alert("AI応答に失敗しました");
+    }
+  } catch (e) {
+    console.error(e);
+    alert("AI 呼び出しエラー");
+  }
+}
+
+// helpers -----------------------------------------------------------------
+function applyAnchors(text){ return text.replace(/&gt;&gt;(\d+)/g, (m,n)=>`<a href="#res-${n}" onclick="document.getElementById('res-${n}')?.scrollIntoView({behavior:'smooth'})">${'&gt;&gt;'+n}</a>`); }
+function escapeHtml(s){ if(!s) return ""; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;'}[c])); }
+function formatJST(iso){ try{ const d=new Date(iso); const j=new Date(d.getTime()+9*60*60*1000); const mm=String(j.getMonth()+1).padStart(2,'0'); const dd=String(j.getDate()).padStart(2,'0'); const hh=String(j.getHours()).padStart(2,'0'); const m=String(j.getMinutes()).padStart(2,'0'); return `${mm}/${dd} ${hh}:${m}` }catch(e){return iso} }
+
+</script>
+</body>
+</html>
